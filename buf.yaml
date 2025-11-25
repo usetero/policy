@@ -6,6 +6,7 @@ modules:
     name: buf.build/tero/policy
 deps:
   - buf.build/opentelemetry/opentelemetry
+  - buf.build/googleapis/googleapis
 lint:
   use:
     - STANDARD
