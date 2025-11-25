@@ -1,0 +1,85 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  PROJECT_NAME: policy
+
+tasks:
+  default:
+    desc: "Build the proto files"
+    aliases: [b]
+    cmds:
+      - task: build
+
+  build:
+    desc: "Build and validate proto files with buf"
+    cmds:
+      - ./bin/buf build
+
+  generate:
+    desc: "Generate code from proto files"
+    aliases: [gen, g]
+    cmds:
+      - ./bin/buf generate
+
+  lint:
+    desc: "Lint proto files"
+    aliases: [l]
+    cmds:
+      - ./bin/buf lint
+
+  format:
+    desc: "Format proto files"
+    aliases: [fmt, f]
+    cmds:
+      - ./bin/buf format -w
+
+  format:check:
+    desc: "Check if proto files are formatted correctly"
+    aliases: [fmt-check, fc]
+    cmds:
+      - ./bin/buf format -d --exit-code
+
+  breaking:
+    desc: "Check for breaking changes against main branch"
+    cmds:
+      - ./bin/buf breaking --against '.git#branch=main'
+
+  deps:
+    desc: "Update buf dependencies"
+    aliases: [dep]
+    cmds:
+      - ./bin/buf dep update
+
+  clean:
+    desc: "Clean generated artifacts"
+    aliases: [c]
+    cmds:
+      - rm -rf gen/
+      - echo "Cleaned generated artifacts"
+
+  do:
+    desc: "Run all pre-commit checks"
+    cmds:
+      - task: format
+      - task: lint
+      - task: build
+      - echo "All checks passed"
+
+  signoff:
+    desc: "Sign off the codebase"
+    aliases: ["sign", "s"]
+    deps:
+      - task: do
+    cmds:
+      - gh signoff
+
+  info:
+    desc: "Show project information"
+    cmds:
+      - echo "Proto files:"
+      - find proto -name "*.proto" -type f
+      - echo ""
+      - echo "Buf version:"
+      - ./bin/buf --version
