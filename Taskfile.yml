@@ -87,6 +87,7 @@ tasks:
   push:proto:
     desc: "Push proto files to buf"
     cmds:
+      - task: deps
       - task: format
       - task: lint
       - task: build
