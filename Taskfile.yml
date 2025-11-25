@@ -83,3 +83,13 @@ tasks:
       - echo ""
       - echo "Buf version:"
       - ./bin/buf --version
+
+  push:proto:
+    desc: "Push proto files to buf"
+    cmds:
+      - task: deps
+      - task: format
+      - task: lint
+      - task: build
+      - echo "Pushing proto files to buf"
+      - ./bin/buf push
