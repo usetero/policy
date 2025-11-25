@@ -2,8 +2,8 @@ syntax = "proto3";
 
 package opentelemetry.proto.policy.v1;
 
-import "opentelemetry/proto/common/v1/common.proto";
 import "google/api/annotations.proto";
+import "opentelemetry/proto/common/v1/common.proto";
 
 option go_package = "github.com/open-telemetry/opentelemetry-proto/gen/go/policy/v1";
 option java_multiple_files = true;
@@ -252,9 +252,9 @@ message SyncResponse {
 service PolicyService {
   // Sync policies with the provider
   rpc Sync(SyncRequest) returns (SyncResponse) {
-        option (google.api.http) = {
-              post: "/v1/policy/sync"
-              body: "*"
-        };
+    option (google.api.http) = {
+      post: "/v1/policy/sync"
+      body: "*"
     };
+  }
 }
