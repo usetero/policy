@@ -4,6 +4,7 @@ package opentelemetry.proto.policy.v1;
 
 import "google/api/annotations.proto";
 import "opentelemetry/proto/common/v1/common.proto";
+import "opentelemetry/proto/trace/v1/trace.proto";
 
 option go_package = "github.com/open-telemetry/opentelemetry-proto/gen/go/policy/v1";
 option java_multiple_files = true;
@@ -31,83 +32,189 @@ enum TelemetryType {
 // Matching
 // =============================================================================
 
-// MatchType specifies the category of telemetry field to match against.
-// Each match type is only valid for certain TelemetryTypes:
-//   - RESOURCE, RESOURCE_ATTRIBUTE, SCOPE, SCOPE_ATTRIBUTE: all telemetry types
-//   - LOG_BODY, LOG_SEVERITY, LOG_ATTRIBUTE: TELEMETRY_TYPE_LOGS only
-//   - METRIC_NAME, METRIC_ATTRIBUTE: TELEMETRY_TYPE_METRICS only (future)
-//   - SPAN_NAME, SPAN_KIND, SPAN_STATUS, SPAN_ATTRIBUTE: TELEMETRY_TYPE_TRACES only (future)
-enum MatchType {
-  MATCH_TYPE_UNSPECIFIED = 0;
-
-  // Resource-level matching (applies to all telemetry types)
-  MATCH_TYPE_RESOURCE_ATTRIBUTE = 1; // Match resource attribute by key (e.g., "service.name")
-
-  // Scope-level matching (applies to all telemetry types)
-  MATCH_TYPE_SCOPE_NAME = 2; // Match instrumentation scope name
-  MATCH_TYPE_SCOPE_VERSION = 3; // Match instrumentation scope version
-  MATCH_TYPE_SCOPE_ATTRIBUTE = 4; // Match scope attribute by key
-
-  // Log-specific matching (requires TELEMETRY_TYPE_LOGS)
-  MATCH_TYPE_LOG_BODY = 10; // Match log body content
-  MATCH_TYPE_LOG_SEVERITY_TEXT = 11; // Match severity text (e.g., "ERROR", "WARN")
-  MATCH_TYPE_LOG_SEVERITY_NUMBER = 12; // Match severity number (1-24)
-  MATCH_TYPE_LOG_ATTRIBUTE = 13; // Match log record attribute by key
-
-  // Metric-specific matching (requires TELEMETRY_TYPE_METRICS - future)
-  MATCH_TYPE_METRIC_NAME = 20; // Match metric name
-  MATCH_TYPE_METRIC_ATTRIBUTE = 21; // Match metric data point attribute by key
-
-  // Trace-specific matching (requires TELEMETRY_TYPE_TRACES - future)
-  MATCH_TYPE_SPAN_NAME = 30; // Match span name
-  MATCH_TYPE_SPAN_KIND = 31; // Match span kind (CLIENT, SERVER, etc.)
-  MATCH_TYPE_SPAN_STATUS = 32; // Match span status code (OK, ERROR, UNSET)
-  MATCH_TYPE_SPAN_ATTRIBUTE = 33; // Match span attribute by key
-}
-
 // Matcher provides a unified way to match against telemetry data using known fields.
 //
 // IMPORTANT CONSTRAINTS:
 // - Multiple matchers are ANDed together: all matchers must match for the
 //   overall match to succeed.
-// - The match_type must be valid for the policy's telemetry_types. For example,
-//   MATCH_TYPE_LOG_BODY is only valid when TELEMETRY_TYPE_LOGS is in the
-//   policy's telemetry_types list.
+// - The match type must be valid for the policy's telemetry_types. For example,
+//   log_body is only valid when TELEMETRY_TYPE_LOGS is in the policy's
+//   telemetry_types list.
 // - The list of matchers should uniquely identify a specific pattern of telemetry
 //   for that policy. Matchers should NOT be used as a catch-all; they should be
 //   specific enough to target the intended telemetry precisely.
 //
-// The regex uses RE2 syntax for consistency across implementations.
+// All regex fields use RE2 syntax for consistency across implementations.
 //
 // Examples:
 //   Match logs from payment service with ERROR severity:
 //     matchers: [
-//       {match_type: RESOURCE_ATTRIBUTE, key: "service.name", regex: "^payment-service$"},
-//       {match_type: LOG_SEVERITY_TEXT, regex: "^ERROR$"}
+//       {resource_attribute: {key: "service.name", regex: "^payment-service$"}},
+//       {log_severity_text: {regex: "^ERROR$"}}
 //     ]
 //
 //   Match logs containing PII in body from any service in prod:
 //     matchers: [
-//       {match_type: RESOURCE_ATTRIBUTE, key: "deployment.environment", regex: "^prod.*"},
-//       {match_type: LOG_BODY, regex: "\\b[0-9]{3}-[0-9]{2}-[0-9]{4}\\b"}
+//       {resource_attribute: {key: "deployment.environment", regex: "^prod.*"}},
+//       {log_body: {regex: "\\b[0-9]{3}-[0-9]{2}-[0-9]{4}\\b"}}
 //     ]
 message Matcher {
-  // The type of field to match against. Determines which telemetry field
-  // is selected for matching.
-  MatchType match_type = 1;
+  // If true, inverts the match (matches when the field does NOT match)
+  bool negate = 1;
 
-  // Key for attribute-based match types (RESOURCE_ATTRIBUTE, SCOPE_ATTRIBUTE,
-  // LOG_ATTRIBUTE, METRIC_ATTRIBUTE, SPAN_ATTRIBUTE).
-  // For example: "service.name", "http.method", "user.id"
-  // Ignored for non-attribute match types.
-  string key = 2;
+  // The field to match against. Exactly one must be set.
+  // Field availability depends on the policy's telemetry_types:
+  //   - resource_attribute, scope_*: all telemetry types
+  //   - log_*: requires TELEMETRY_TYPE_LOGS
+  //   - metric_*: requires TELEMETRY_TYPE_METRICS (future)
+  //   - span_*: requires TELEMETRY_TYPE_TRACES (future)
+  oneof match {
+    // Resource-level matching (applies to all telemetry types)
+    ResourceAttributeMatch resource_attribute = 10;
 
-  // Regular expression pattern to match the field value against.
-  // Uses RE2 syntax. An empty regex matches any value (existence check).
-  string regex = 3;
+    // Scope-level matching (applies to all telemetry types)
+    ScopeNameMatch scope_name = 11;
+    ScopeVersionMatch scope_version = 12;
+    ScopeAttributeMatch scope_attribute = 13;
 
-  // If true, inverts the match (matches when regex does NOT match)
-  bool negate = 4;
+    // Log-specific matching (requires TELEMETRY_TYPE_LOGS)
+    LogBodyMatch log_body = 20;
+    LogSeverityTextMatch log_severity_text = 21;
+    LogSeverityNumberMatch log_severity_number = 22;
+    LogAttributeMatch log_attribute = 23;
+
+    // Metric-specific matching (requires TELEMETRY_TYPE_METRICS - future)
+    MetricNameMatch metric_name = 30;
+    MetricAttributeMatch metric_attribute = 31;
+
+    // Trace-specific matching (requires TELEMETRY_TYPE_TRACES - future)
+    SpanNameMatch span_name = 40;
+    SpanKindMatch span_kind = 41;
+    SpanStatusMatch span_status = 42;
+    SpanAttributeMatch span_attribute = 43;
+  }
+}
+
+// =============================================================================
+// Resource and Scope Matchers (apply to all telemetry types)
+// =============================================================================
+
+// ResourceAttributeMatch matches against a resource attribute by key.
+message ResourceAttributeMatch {
+  // The attribute key to match (e.g., "service.name", "deployment.environment")
+  string key = 1;
+
+  // Regex pattern to match the attribute value. Empty matches any value (existence check).
+  string regex = 2;
+}
+
+// ScopeNameMatch matches against the instrumentation scope name.
+message ScopeNameMatch {
+  // Regex pattern to match the scope name.
+  string regex = 1;
+}
+
+// ScopeVersionMatch matches against the instrumentation scope version.
+message ScopeVersionMatch {
+  // Regex pattern to match the scope version.
+  string regex = 1;
+}
+
+// ScopeAttributeMatch matches against a scope attribute by key.
+message ScopeAttributeMatch {
+  // The attribute key to match.
+  string key = 1;
+
+  // Regex pattern to match the attribute value. Empty matches any value (existence check).
+  string regex = 2;
+}
+
+// =============================================================================
+// Log Matchers (require TELEMETRY_TYPE_LOGS)
+// =============================================================================
+
+// LogBodyMatch matches against the log record body.
+message LogBodyMatch {
+  // Regex pattern to match the log body content.
+  string regex = 1;
+}
+
+// LogSeverityTextMatch matches against the log severity text.
+message LogSeverityTextMatch {
+  // Regex pattern to match the severity text (e.g., "ERROR", "WARN", "INFO").
+  string regex = 1;
+}
+
+// LogSeverityNumberMatch matches against the log severity number.
+message LogSeverityNumberMatch {
+  // Minimum severity number (inclusive). Range: 1-24.
+  int32 min = 1;
+
+  // Maximum severity number (inclusive). Range: 1-24.
+  // If 0, only min is used for exact match.
+  int32 max = 2;
+}
+
+// LogAttributeMatch matches against a log record attribute by key.
+message LogAttributeMatch {
+  // The attribute key to match (e.g., "user.id", "http.method").
+  string key = 1;
+
+  // Regex pattern to match the attribute value. Empty matches any value (existence check).
+  string regex = 2;
+}
+
+// =============================================================================
+// Metric Matchers (require TELEMETRY_TYPE_METRICS - future)
+// =============================================================================
+
+// MetricNameMatch matches against the metric name.
+message MetricNameMatch {
+  // Regex pattern to match the metric name.
+  string regex = 1;
+}
+
+// MetricAttributeMatch matches against a metric data point attribute by key.
+message MetricAttributeMatch {
+  // The attribute key to match.
+  string key = 1;
+
+  // Regex pattern to match the attribute value. Empty matches any value (existence check).
+  string regex = 2;
+}
+
+// =============================================================================
+// Span Matchers (require TELEMETRY_TYPE_TRACES - future)
+// =============================================================================
+
+// SpanNameMatch matches against the span name.
+message SpanNameMatch {
+  // Regex pattern to match the span name.
+  string regex = 1;
+}
+
+// SpanKindMatch matches against the span kind.
+message SpanKindMatch {
+  // The span kind to match.
+  // See opentelemetry.proto.trace.v1.Span.SpanKind for valid values.
+  opentelemetry.proto.trace.v1.Span.SpanKind kind = 1;
+}
+
+// SpanStatusMatch matches against the span status code.
+// Uses opentelemetry.proto.trace.v1.Status.StatusCode from the trace proto.
+message SpanStatusMatch {
+  // The status code to match.
+  // See opentelemetry.proto.trace.v1.Status.StatusCode for valid values.
+  opentelemetry.proto.trace.v1.Status.StatusCode code = 1;
+}
+
+// SpanAttributeMatch matches against a span attribute by key.
+message SpanAttributeMatch {
+  // The attribute key to match.
+  string key = 1;
+
+  // Regex pattern to match the attribute value. Empty matches any value (existence check).
+  string regex = 2;
 }
 
 // =============================================================================
@@ -195,12 +302,6 @@ message Policy {
   // Priority for merge conflict resolution (higher = more important)
   int32 priority = 6;
 
-  // Policy configuration based on policy_type
-  oneof config {
-    FilterConfig filter = 7;
-    RedactionConfig redaction = 8;
-  }
-
   // Whether this policy is enabled
   bool enabled = 9;
 
@@ -212,6 +313,12 @@ message Policy {
 
   // Timestamp when this policy was last modified (Unix epoch nanoseconds)
   fixed64 modified_at_unix_nano = 12;
+
+  // Policy configuration based on policy_type.
+  oneof config {
+    FilterConfig filter = 16;
+    RedactionConfig redaction = 17;
+  }
 }
 
 // =============================================================================
