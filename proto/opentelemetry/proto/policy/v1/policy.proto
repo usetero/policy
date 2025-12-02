@@ -4,6 +4,7 @@ package opentelemetry.proto.policy.v1;
 
 import "google/api/annotations.proto";
 import "opentelemetry/proto/common/v1/common.proto";
+import "opentelemetry/proto/trace/v1/trace.proto";
 
 option go_package = "github.com/open-telemetry/opentelemetry-proto/gen/go/policy/v1";
 option java_multiple_files = true;
@@ -192,33 +193,19 @@ message SpanNameMatch {
   string regex = 1;
 }
 
-// SpanKind represents the type of span.
-enum SpanKind {
-  SPAN_KIND_UNSPECIFIED = 0;
-  SPAN_KIND_INTERNAL = 1;
-  SPAN_KIND_SERVER = 2;
-  SPAN_KIND_CLIENT = 3;
-  SPAN_KIND_PRODUCER = 4;
-  SPAN_KIND_CONSUMER = 5;
-}
-
 // SpanKindMatch matches against the span kind.
 message SpanKindMatch {
   // The span kind to match.
-  SpanKind kind = 1;
+  // See opentelemetry.proto.trace.v1.Span.SpanKind for valid values.
+  opentelemetry.proto.trace.v1.Span.SpanKind kind = 1;
 }
 
-// SpanStatusCode represents the status of a span.
-enum SpanStatusCode {
-  SPAN_STATUS_CODE_UNSET = 0;
-  SPAN_STATUS_CODE_OK = 1;
-  SPAN_STATUS_CODE_ERROR = 2;
-}
-
-// SpanStatusMatch matches against the span status.
+// SpanStatusMatch matches against the span status code.
+// Uses opentelemetry.proto.trace.v1.Status.StatusCode from the trace proto.
 message SpanStatusMatch {
   // The status code to match.
-  SpanStatusCode code = 1;
+  // See opentelemetry.proto.trace.v1.Status.StatusCode for valid values.
+  opentelemetry.proto.trace.v1.Status.StatusCode code = 1;
 }
 
 // SpanAttributeMatch matches against a span attribute by key.
