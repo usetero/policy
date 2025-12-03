@@ -8,6 +8,7 @@ This repository houses an experimental version of the specification for the basi
 2. Policies are identified by a unique type
 3. Policies must be idempotent
 4. Policies are implementation agnostic
+5. A policy provider should only be responsible for its own policies.
 
 # Constraints
 
