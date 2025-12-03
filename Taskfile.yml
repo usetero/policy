@@ -44,7 +44,7 @@ tasks:
   breaking:
     desc: "Check for breaking changes against main branch"
     cmds:
-      - ./bin/buf breaking --against '.git#branch=main'
+      - ./bin/buf breaking --against '.git#branch=master'
 
   deps:
     desc: "Update buf dependencies"
