@@ -342,6 +342,23 @@ message LogTransformConfig {
 //
 // Merge Strategy: Policies are merged using priority.
 // Higher priority values take precedence when rules conflict.
+//
+// Execution Stages:
+// Policy implementations MUST execute policies in the following stages:
+//
+// 1. Filter Stage: LogFilterConfig policies are evaluated first.
+//    - Only a single filter policy can match and be applied per log record.
+//    - If multiple filter policies match, the highest priority policy wins.
+//    - If the matched filter policy has action DROP, the log is dropped and
+//      no further processing occurs.
+//
+// 2. Transform Stage: LogTransformConfig policies are evaluated second.
+//    - All matching transform policies are applied to the log record.
+//    - Transform policies are applied in priority order (highest first).
+//    - If two transform policies have the same priority, the implementation
+//      MUST NOT run either policy and MUST report an error.
+//    - Transforms are applied sequentially, so earlier transforms may affect
+//      the input to later transforms.
 message Policy {
   // Unique identifier for this policy
   string id = 1;
