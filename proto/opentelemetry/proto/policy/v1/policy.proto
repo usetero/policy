@@ -34,7 +34,7 @@ option java_package = "io.opentelemetry.proto.policy.v1";
 //   Match logs containing PII in body from any service in prod:
 //     matchers: [
 //       {resource_attribute: {key: "deployment.environment", regex: "^prod.*"}},
-//       {log_body: {regex: "\\b[0-9]{3}-[0-9]{2}-[0-9]{4}\\b"}}
+//       {log_body: {regex: "\b[0-9]{3}-[0-9]{2}-[0-9]{4}\b"}}
 //     ]
 message LogMatcher {
   // If true, inverts the match (matches when the field does NOT match)
@@ -215,6 +215,119 @@ message LogFilterConfig {
   FilterAction action = 2;
 }
 
+// LogTransformField selects which field of a log record to transform.
+// Mirrors the structure of matcher fields but for targeting transformations.
+message LogTransformField {
+  oneof field {
+    // Resource-level fields
+    ResourceSchemaUrlField resource_schema_url = 10;
+    ResourceAttributeField resource_attribute = 11;
+
+    // Scope-level fields
+    ScopeSchemaUrlField scope_schema_url = 12;
+    ScopeNameField scope_name = 13;
+    ScopeVersionField scope_version = 14;
+    ScopeAttributeField scope_attribute = 15;
+
+    // Log-specific fields
+    LogBodyField log_body = 20;
+    LogSeverityTextField log_severity_text = 21;
+    LogAttributeField log_attribute = 23;
+  }
+}
+
+// Resource-level field selectors
+message ResourceSchemaUrlField {}
+
+message ResourceAttributeField {
+  // The attribute key to target (e.g., "service.name", "deployment.environment")
+  string key = 1;
+}
+
+// Scope-level field selectors
+message ScopeSchemaUrlField {}
+
+message ScopeNameField {}
+
+message ScopeVersionField {}
+
+message ScopeAttributeField {
+  // The attribute key to target.
+  string key = 1;
+}
+
+// Log-specific field selectors
+message LogBodyField {}
+
+message LogSeverityTextField {}
+
+message LogAttributeField {
+  // The attribute key to target (e.g., "user.id", "http.url").
+  string key = 1;
+}
+
+// SedConfig defines a sed-like replacement operation.
+// Uses RE2 regex syntax for pattern matching.
+//
+// Examples:
+//   Replace SSN patterns with "[REDACTED]":
+//     pattern: "\b[0-9]{3}-[0-9]{2}-[0-9]{4}\b"
+//     replacement: "[REDACTED]"
+//
+//   Mask email addresses, keeping the domain:
+//     pattern: "[a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})"
+//     replacement: "[REDACTED]@$1"
+//
+//   Mask credit card numbers, keeping last 4 digits:
+//     pattern: "\b[0-9]{12}([0-9]{4})\b"
+//     replacement: "************$1"
+//
+//   Redact password values in key=value pairs:
+//     pattern: "(password=)[^&\s]+"
+//     replacement: "${1}[REDACTED]"
+message ReplacementConfig {
+  // The regex pattern to match (RE2 syntax).
+  string pattern = 1;
+
+  // The replacement string. May include capture group references like $1, $2, or ${1}.
+  string replacement = 2;
+}
+
+// LogTransformConfig defines configuration for log transformation policies.
+// Matches logs based on conditions and applies transformations to specific fields.
+//
+// Examples:
+//   Redact SSNs in log body for payment service:
+//     matchers: [
+//       {resource_attribute: {key: "service.name", regex: "^payment-service$"}}
+//     ]
+//     field: {log_body: {}}
+//     config: {pattern: "\b[0-9]{3}-[0-9]{2}-[0-9]{4}\b", replacement: "[SSN REDACTED]"}
+//
+//   Mask email in user.email attribute:
+//     matchers: [
+//       {log_attribute: {key: "user.email", regex: ".*"}}
+//     ]
+//     field: {log_attribute: {key: "user.email"}}
+//     config: {pattern: ".*", replacement: "[EMAIL REDACTED]"}
+//
+//   Redact service name in resource attributes:
+//     matchers: [
+//       {resource_attribute: {key: "deployment.environment", regex: "^prod$"}}
+//     ]
+//     field: {resource_attribute: {key: "service.name"}}
+//     config: {pattern: ".*", replacement: "[REDACTED]"}
+message LogTransformConfig {
+  // Matchers to identify which logs this transform applies to (AND logic)
+  repeated LogMatcher matchers = 1;
+
+  // The field to apply the transformation to
+  LogTransformField field = 2;
+
+  // The sed-like replacement configuration
+  ReplacementConfig config = 3;
+}
+
 // =============================================================================
 // Policy Definition
 // =============================================================================
@@ -260,6 +373,7 @@ message Policy {
   // Policy configuration. Exactly one must be set.
   oneof config {
     LogFilterConfig log_filter = 9;
+    LogTransformConfig log_transform = 10;
   }
 }
 
@@ -272,6 +386,7 @@ message Policy {
 enum PolicyType {
   POLICY_TYPE_UNSPECIFIED = 0;
   POLICY_TYPE_LOG_FILTER = 1; // Define how logs are filtered (keep/drop)
+  POLICY_TYPE_LOG_TRANSFORM = 2; // Define how logs are transformed (sed replacement)
 }
 
 // =============================================================================
@@ -311,6 +426,12 @@ message PolicySyncStatus {
 
   // Error messages encountered while applying this policy.
   repeated string errors = 4;
+
+  // Total number of bytes prior to policy evaluation.
+  int64 bytes = 5;
+
+  // Total number of bytes after policy evaluation.
+  int64 bytes_after = 6;
 }
 
 // SyncRequest is sent by clients to request policy updates.
