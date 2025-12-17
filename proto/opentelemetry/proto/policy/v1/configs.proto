@@ -3,7 +3,6 @@ syntax = "proto3";
 package opentelemetry.proto.policy.v1;
 
 import "opentelemetry/proto/policy/v1/common.proto";
-import "opentelemetry/proto/policy/v1/matchers.proto";
 
 option go_package = "github.com/open-telemetry/opentelemetry-proto/gen/go/policy/v1";
 option java_multiple_files = true;
