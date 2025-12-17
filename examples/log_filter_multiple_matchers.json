@@ -2,7 +2,6 @@
   "id": "keep-error-logs-with-user-id",
   "name": "Keep Error Logs With User ID",
   "description": "Keep only ERROR logs that also have a user.id attribute",
-  "priority": 100,
   "enabled": true,
   "log_filter": {
     "matchers": [

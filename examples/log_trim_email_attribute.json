@@ -1,0 +1,20 @@
+{
+  "id": "drop-user-email-attribute",
+  "name": "Drop User Email Attribute",
+  "description": "Remove the user.email attribute entirely from logs",
+  "enabled": true,
+  "log_trim": {
+    "matchers": [
+      {
+        "log_attribute": {
+          "key": "user.email"
+        }
+      }
+    ],
+    "field": {
+      "log_attribute": {
+        "key": "user.email"
+      }
+    }
+  }
+}

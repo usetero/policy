@@ -22,25 +22,21 @@ option java_package = "io.opentelemetry.proto.policy.v1";
 // - Idempotent: Safe to apply to multiple components
 // - Fail-Open: Does not interfere with telemetry on failure
 //
-// Merge Strategy: Policies are merged using priority.
-// Higher priority values take precedence when rules conflict.
-//
 // Execution Stages:
-// Policy implementations MUST execute policies in the following stages:
+// Policy implementations MUST execute policies in the following stages.
+// Each stage defines its own conflict resolution strategy.
 //
 // 1. Filter Stage: LogFilterConfig policies are evaluated first.
-//    - Only a single filter policy can match and be applied per log record.
-//    - If multiple filter policies match, the highest priority policy wins.
-//    - If the matched filter policy has action DROP, the log is dropped and
-//      no further processing occurs.
+//    - If the log matches any filter policy with action DROP, and also matches
+//      any filter policy with action KEEP, the KEEP policies always win.
+//      The KEEP policies are counted as hits, DROP policies as misses.
+//    - If all matching policies have the same action (all KEEPs or all DROPs),
+//      the implementation MUST count hits for each matching policy.
+//    - If a DROP action wins, the log is dropped and no further processing occurs.
 //
-// 2. Transform Stage: LogTransformConfig policies are evaluated second.
-//    - All matching transform policies are applied to the log record.
-//    - Transform policies are applied in priority order (highest first).
-//    - If two transform policies have the same priority, the implementation
-//      MUST NOT run either policy and MUST report an error.
-//    - Transforms are applied sequentially, so earlier transforms may affect
-//      the input to later transforms.
+// 2. Trim Stage: LogTrimConfig policies are evaluated second.
+//    - All matching trim policies are applied to the log record.
+//    - Trim policies remove attributes or remove part of the log body.
 message Policy {
   // Unique identifier for this policy
   string id = 1;
@@ -50,9 +46,6 @@ message Policy {
 
   // Optional description
   string description = 3;
-
-  // Priority for merge conflict resolution (higher = more important)
-  int32 priority = 4;
 
   // Whether this policy is enabled
   bool enabled = 5;
@@ -72,7 +65,7 @@ message Policy {
   // Policy configuration. Exactly one must be set.
   oneof config {
     LogFilterConfig log_filter = 9;
-    LogTransformConfig log_transform = 10;
+    LogTrimConfig log_trim = 10;
   }
 }
 
@@ -85,7 +78,7 @@ message Policy {
 enum PolicyType {
   POLICY_TYPE_UNSPECIFIED = 0;
   POLICY_TYPE_LOG_FILTER = 1; // Define how logs are filtered (keep/drop)
-  POLICY_TYPE_LOG_TRANSFORM = 2; // Define how logs are transformed (sed-style replacement)
+  POLICY_TYPE_LOG_TRIM = 2; // Define how log fields are trimmed (removal)
 }
 
 // =============================================================================

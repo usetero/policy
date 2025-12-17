@@ -2,7 +2,6 @@
   "id": "keep-error-logs",
   "name": "Keep Error Logs",
   "description": "Only keep logs with ERROR severity level",
-  "priority": 100,
   "enabled": true,
   "log_filter": {
     "matchers": [

@@ -1,0 +1,18 @@
+{
+  "id": "trim-body-containing-ssn",
+  "name": "Trim Body Containing SSN",
+  "description": "Remove the body containing SSN patterns",
+  "enabled": true,
+  "log_trim": {
+    "matchers": [
+      {
+        "log_body": {
+          "regex": "\\b[0-9]{3}-[0-9]{2}-[0-9]{4}\\b"
+        }
+      }
+    ],
+    "field": {
+      "log_body": {}
+    }
+  }
+}

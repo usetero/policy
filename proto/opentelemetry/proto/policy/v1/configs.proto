@@ -29,26 +29,12 @@ message LogFilterConfig {
   FilterAction action = 2;
 }
 
-// DropConfig specifies that the matched field should be removed entirely.
-message DropConfig {}
-
-// LogTransformConfig defines configuration for log transformation policies.
-// Matches logs based on conditions and applies transformations to specific fields.
-message LogTransformConfig {
-  // Matchers to identify which logs this transform applies to (AND logic)
+// LogTrimConfig defines configuration for log trim policies.
+// Matches logs based on conditions and removes specific fields.
+message LogTrimConfig {
+  // Matchers to identify which logs this trim applies to (AND logic)
   repeated LogMatcher matchers = 1;
 
-  // The field to apply the transformation to
-  LogTransformField field = 2;
-
-  // The transformation action to apply. Exactly one must be set.
-  oneof action {
-    // Replace content in the field using a regex pattern
-    ReplacementConfig replacement = 3;
-
-    // Drop the field entirely
-    DropConfig drop = 4;
-
-    // Future: AddConfig for adding new fields will be added.
-  }
+  // The fields to remove from the log
+  repeated LogFieldSelector fields = 2;
 }

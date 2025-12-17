@@ -2,7 +2,6 @@
   "id": "drop-non-error-logs",
   "name": "Drop Non-Error Logs",
   "description": "Drop all logs that are NOT errors (using negate)",
-  "priority": 50,
   "enabled": true,
   "log_filter": {
     "matchers": [

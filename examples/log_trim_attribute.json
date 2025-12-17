@@ -2,14 +2,12 @@
   "id": "drop-password-attribute",
   "name": "Drop Password Attribute",
   "description": "Remove the user.password attribute entirely from logs",
-  "priority": 100,
   "enabled": true,
-  "log_transform": {
+  "log_trim": {
     "matchers": [
       {
         "log_attribute": {
-          "key": "user.password",
-          "regex": ".*"
+          "key": "user.password"
         }
       }
     ],
@@ -17,7 +15,6 @@
       "log_attribute": {
         "key": "user.password"
       }
-    },
-    "drop": {}
+    }
   }
 }
