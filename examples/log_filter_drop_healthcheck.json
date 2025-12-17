@@ -1,0 +1,17 @@
+{
+  "id": "drop-healthcheck-logs",
+  "name": "Drop Health Check Logs",
+  "description": "Drop logs from health check endpoints to reduce noise",
+  "priority": 75,
+  "enabled": true,
+  "log_filter": {
+    "matchers": [
+      {
+        "log_body": {
+          "regex": "/health|/readiness|/liveness"
+        }
+      }
+    ],
+    "action": "FILTER_ACTION_DROP"
+  }
+}

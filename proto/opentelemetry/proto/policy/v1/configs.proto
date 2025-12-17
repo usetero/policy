@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package opentelemetry.proto.policy.v1;
+
+import "opentelemetry/proto/policy/v1/common.proto";
+import "opentelemetry/proto/policy/v1/matchers.proto";
+
+option go_package = "github.com/open-telemetry/opentelemetry-proto/gen/go/policy/v1";
+option java_multiple_files = true;
+option java_package = "io.opentelemetry.proto.policy.v1";
+
+// =============================================================================
+// Policy Type Configurations
+// =============================================================================
+
+// FilterAction specifies what to do with matched logs.
+enum FilterAction {
+  FILTER_ACTION_UNSPECIFIED = 0;
+  FILTER_ACTION_KEEP = 1;
+  FILTER_ACTION_DROP = 2;
+}
+
+// LogFilterConfig defines configuration for log filter policies.
+// Matches logs based on conditions and keeps or drops them.
+message LogFilterConfig {
+  // Matchers to identify which logs this filter applies to (AND logic)
+  repeated LogMatcher matchers = 1;
+
+  // Action to take on matched logs
+  FilterAction action = 2;
+}
+
+// DropConfig specifies that the matched field should be removed entirely.
+message DropConfig {}
+
+// LogTransformConfig defines configuration for log transformation policies.
+// Matches logs based on conditions and applies transformations to specific fields.
+message LogTransformConfig {
+  // Matchers to identify which logs this transform applies to (AND logic)
+  repeated LogMatcher matchers = 1;
+
+  // The field to apply the transformation to
+  LogTransformField field = 2;
+
+  // The transformation action to apply. Exactly one must be set.
+  oneof action {
+    // Replace content in the field using a regex pattern
+    ReplacementConfig replacement = 3;
+
+    // Drop the field entirely
+    DropConfig drop = 4;
+
+    // Future: AddConfig for adding new fields will be added.
+  }
+}

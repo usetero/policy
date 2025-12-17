@@ -1,0 +1,26 @@
+{
+  "id": "redact-user-email-attribute",
+  "name": "Redact User Email Attribute",
+  "description": "Replace the user.email attribute value with a redacted placeholder",
+  "priority": 85,
+  "enabled": true,
+  "log_transform": {
+    "matchers": [
+      {
+        "log_attribute": {
+          "key": "user.email",
+          "regex": ".*"
+        }
+      }
+    ],
+    "field": {
+      "log_attribute": {
+        "key": "user.email"
+      }
+    },
+    "replacement": {
+      "pattern": ".*",
+      "replacement": "[EMAIL REDACTED]"
+    }
+  }
+}

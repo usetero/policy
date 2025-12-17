@@ -1,0 +1,17 @@
+{
+  "id": "drop-debug-logs",
+  "name": "Drop Debug Logs",
+  "description": "Drop all logs with DEBUG severity level",
+  "priority": 50,
+  "enabled": true,
+  "log_filter": {
+    "matchers": [
+      {
+        "log_severity_text": {
+          "regex": "^DEBUG$"
+        }
+      }
+    ],
+    "action": "FILTER_ACTION_DROP"
+  }
+}

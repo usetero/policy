@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package opentelemetry.proto.policy.v1;
+
+option go_package = "github.com/open-telemetry/opentelemetry-proto/gen/go/policy/v1";
+option java_multiple_files = true;
+option java_package = "io.opentelemetry.proto.policy.v1";
+
+// =============================================================================
+// Field Selectors
+// =============================================================================
+
+// LogTransformField selects which field of a log record to transform.
+// Mirrors the structure of matcher fields but for targeting transformations.
+message LogTransformField {
+  oneof field {
+    // Log-specific fields
+    LogBodyField log_body = 20;
+    LogSeverityTextField log_severity_text = 21;
+    LogAttributeField log_attribute = 23;
+
+    // Future: Resource-level and scope-level field selectors will be added.
+  }
+}
+
+// Log-specific field selectors
+message LogBodyField {}
+
+message LogSeverityTextField {}
+
+message LogAttributeField {
+  // The attribute key to target (e.g., "user.id", "http.url").
+  string key = 1;
+}
+
+// =============================================================================
+// Replacement Configuration
+// =============================================================================
+
+// ReplacementConfig defines a sed-like replacement operation.
+// Uses RE2 regex syntax for pattern matching.
+message ReplacementConfig {
+  // The regex pattern to match (RE2 syntax).
+  string pattern = 1;
+
+  // The replacement string. May include capture group references like $1, $2, or ${1}.
+  string replacement = 2;
+}
