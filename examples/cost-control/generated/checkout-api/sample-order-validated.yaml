@@ -6,3 +6,7 @@ log:
     resource.service.name: checkout-api
     body: /order validated/
   keep: 50%
+  transform:
+    remove:
+      - attributes.cart_contents
+      - attributes.validation_trace

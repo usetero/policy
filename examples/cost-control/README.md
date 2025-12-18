@@ -83,7 +83,7 @@ The control plane analyzes your telemetry and generates policies for each distin
 **checkout-api/**
 - `drop-cart-item-added.yaml` - High volume, low value cart events
 - `drop-request-received.yaml` - Redundant request logging
-- `sample-order-validated.yaml` - Keep 50% for debugging
+- `sample-order-validated.yaml` - Keep 50%, strip verbose attributes
 
 **user-service/**
 - `drop-session-heartbeat.yaml` - Constant noise from session keepalives
