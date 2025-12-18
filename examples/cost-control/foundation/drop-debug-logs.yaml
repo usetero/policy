@@ -1,7 +1,7 @@
 id: drop-debug-logs
-name: Drop all debug logs
+name: Drop debug and trace logs
 
 log:
   match:
-    severity_text: DEBUG
+    severity_text: /^(DEBUG|TRACE)$/
   keep: none

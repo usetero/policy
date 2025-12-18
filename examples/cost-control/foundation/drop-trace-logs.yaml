@@ -1,7 +1,0 @@
-id: drop-trace-logs
-name: Drop all trace logs
-
-log:
-  match:
-    severity_text: TRACE
-  keep: none
