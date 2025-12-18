@@ -22,10 +22,11 @@ name: Redact CVV codes
 
 log:
   match:
-    attributes.cvv: exists
+    - log_attribute: cvv
+      exists: true
   transform:
     redact:
-      - field: attributes.cvv
+      - log_attribute: cvv
 ```
 
 That's the entire answer. One file. No grep through pipeline configs. No "I think it's somewhere in the VRL transform."
@@ -38,11 +39,40 @@ That's the entire answer. One file. No grep through pipeline configs. No "I thin
 - `redact-cvv.yaml` - Redact CVV codes wherever they appear
 - `drop-payment-debug.yaml` - No debug logs from payment services (defense in depth)
 
+```yaml
+id: drop-payment-debug
+name: Drop debug logs from payment services
+
+log:
+  match:
+    - resource_attribute: service.name
+      regex: "^payment-"
+    - log_field: severity_text
+      exact: DEBUG
+  keep: none
+```
+
 ### Generated (per log event)
 
 **payment-api/**
 - `redact-transaction-logged.yaml` - Redact card_number, account_id
 - `redact-payment-processed.yaml` - Redact card_last_four, billing_address
+
+```yaml
+id: payment-api-redact-payment-processed
+name: Redact payment processed events
+
+log:
+  match:
+    - resource_attribute: service.name
+      exact: payment-api
+    - log_field: body
+      regex: "payment processed"
+  transform:
+    redact:
+      - log_attribute: card_last_four
+      - log_attribute: billing_address
+```
 
 **checkout-api/**
 - `redact-order-submitted.yaml` - Redact payment_method, billing_email

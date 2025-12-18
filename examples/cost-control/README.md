@@ -27,12 +27,40 @@ The problem isn't knowing what to filter. It's managing it at scale. You have hu
 - `drop-debug-logs.yaml` - Drop DEBUG and TRACE severity logs
 - `drop-health-checks.yaml` - Drop health check request logs
 
+```yaml
+id: drop-debug-logs
+name: Drop debug and trace logs
+
+log:
+  match:
+    - log_field: severity_text
+      regex: "^(DEBUG|TRACE)$"
+  keep: none
+```
+
 ### Generated (per log event)
 
 **checkout-api/**
 - `drop-cart-item-added.yaml` - High volume, low value cart events
 - `drop-request-received.yaml` - Redundant request logging
 - `sample-order-validated.yaml` - Keep 50%, strip verbose attributes
+
+```yaml
+id: checkout-api-sample-order-validated
+name: Sample order validated logs
+
+log:
+  match:
+    - resource_attribute: service.name
+      exact: checkout-api
+    - log_field: body
+      regex: "order validated"
+  keep: 50%
+  transform:
+    remove:
+      - log_attribute: cart_contents
+      - log_attribute: validation_trace
+```
 
 **user-service/**
 - `drop-session-heartbeat.yaml` - Constant noise from session keepalives
