@@ -1,0 +1,11 @@
+id: pci-redaction
+name: PCI-DSS field redaction
+
+log:
+  match:
+    resource.service.name: payment-api
+  transform:
+    redact:
+      - field: attributes.credit_card
+      - field: attributes.cvv
+      - field: attributes.account_number
