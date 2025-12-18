@@ -3,11 +3,8 @@ name: Drop request received logs
 
 log:
   match:
-    - field:
-        log_attribute: resource.service.name
+    - resource_attribute: service.name
       exact: checkout-api
-    - field:
-        log_field: body
+    - log_field: body
       regex: "request received"
-  keep:
-    strategy: none
+  keep: none

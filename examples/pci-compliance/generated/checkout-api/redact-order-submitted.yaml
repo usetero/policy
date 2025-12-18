@@ -3,15 +3,11 @@ name: Redact order submitted events
 
 log:
   match:
-    - field:
-        log_attribute: resource.service.name
+    - resource_attribute: service.name
       exact: checkout-api
-    - field:
-        log_field: body
+    - log_field: body
       regex: "order submitted"
   transform:
     redact:
-      - field:
-          log_attribute: payment_method
-      - field:
-          log_attribute: billing_email
+      - log_attribute: payment_method
+      - log_attribute: billing_email

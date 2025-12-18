@@ -3,15 +3,11 @@ name: Redact payment processed events
 
 log:
   match:
-    - field:
-        log_attribute: resource.service.name
+    - resource_attribute: service.name
       exact: payment-api
-    - field:
-        log_field: body
+    - log_field: body
       regex: "payment processed"
   transform:
     redact:
-      - field:
-          log_attribute: card_last_four
-      - field:
-          log_attribute: billing_address
+      - log_attribute: card_last_four
+      - log_attribute: billing_address

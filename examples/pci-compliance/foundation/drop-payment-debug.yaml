@@ -3,11 +3,8 @@ name: Drop debug logs from payment services
 
 log:
   match:
-    - field:
-        log_attribute: resource.service.name
+    - resource_attribute: service.name
       regex: "^payment-"
-    - field:
-        log_field: severity_text
+    - log_field: severity_text
       exact: DEBUG
-  keep:
-    strategy: none
+  keep: none

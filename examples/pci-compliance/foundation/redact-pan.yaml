@@ -3,10 +3,8 @@ name: Redact primary account numbers
 
 log:
   match:
-    - field:
-        log_attribute: pan
+    - log_attribute: pan
       exists: true
   transform:
     redact:
-      - field:
-          log_attribute: pan
+      - log_attribute: pan

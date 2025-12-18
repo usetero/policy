@@ -3,8 +3,6 @@ name: Drop debug and trace logs
 
 log:
   match:
-    - field:
-        log_field: severity_text
+    - log_field: severity_text
       regex: "^(DEBUG|TRACE)$"
-  keep:
-    strategy: none
+  keep: none
