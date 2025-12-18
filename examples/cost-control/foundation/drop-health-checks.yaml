@@ -1,0 +1,10 @@
+id: drop-health-checks
+name: Drop health check logs
+
+log:
+  match:
+    - field:
+        log_field: body
+      regex: "GET /health"
+  keep:
+    strategy: none

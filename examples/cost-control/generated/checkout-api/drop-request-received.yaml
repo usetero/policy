@@ -1,0 +1,13 @@
+id: checkout-api-drop-request-received
+name: Drop request received logs
+
+log:
+  match:
+    - field:
+        log_attribute: resource.service.name
+      exact: checkout-api
+    - field:
+        log_field: body
+      regex: "request received"
+  keep:
+    strategy: none

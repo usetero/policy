@@ -1,0 +1,13 @@
+id: user-service-drop-session-heartbeat
+name: Drop session heartbeat logs
+
+log:
+  match:
+    - field:
+        log_attribute: resource.service.name
+      exact: user-service
+    - field:
+        log_field: body
+      regex: "session heartbeat"
+  keep:
+    strategy: none

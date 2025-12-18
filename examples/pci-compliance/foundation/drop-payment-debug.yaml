@@ -1,0 +1,13 @@
+id: drop-payment-debug
+name: Drop debug logs from payment services
+
+log:
+  match:
+    - field:
+        log_attribute: resource.service.name
+      regex: "^payment-"
+    - field:
+        log_field: severity_text
+      exact: DEBUG
+  keep:
+    strategy: none

@@ -1,14 +1,12 @@
 syntax = "proto3";
 
-package opentelemetry.proto.policy.v1;
+package tero.policy.v1;
 
 import "google/api/annotations.proto";
 import "opentelemetry/proto/common/v1/common.proto";
-import "opentelemetry/proto/policy/v1/configs.proto";
+import "tero/policy/v1/log.proto";
 
-option go_package = "github.com/open-telemetry/opentelemetry-proto/gen/go/policy/v1";
-option java_multiple_files = true;
-option java_package = "io.opentelemetry.proto.policy.v1";
+option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 
 // =============================================================================
 // Policy Definition
@@ -21,22 +19,6 @@ option java_package = "io.opentelemetry.proto.policy.v1";
 // - Dynamic: Can be updated post-instantiation
 // - Idempotent: Safe to apply to multiple components
 // - Fail-Open: Does not interfere with telemetry on failure
-//
-// Execution Stages:
-// Policy implementations MUST execute policies in the following stages.
-// Each stage defines its own conflict resolution strategy.
-//
-// 1. Filter Stage: LogFilterConfig policies are evaluated first.
-//    - If the log matches any filter policy with action DROP, and also matches
-//      any filter policy with action KEEP, the KEEP policies always win.
-//      The KEEP policies are counted as hits, DROP policies as misses.
-//    - If all matching policies have the same action (all KEEPs or all DROPs),
-//      the implementation MUST count hits for each matching policy.
-//    - If a DROP action wins, the log is dropped and no further processing occurs.
-//
-// 2. Trim Stage: LogTrimConfig policies are evaluated second.
-//    - All matching trim policies are applied to the log record.
-//    - Trim policies remove attributes or remove part of the log body.
 message Policy {
   // Unique identifier for this policy
   string id = 1;
@@ -48,47 +30,43 @@ message Policy {
   string description = 3;
 
   // Whether this policy is enabled
-  bool enabled = 5;
+  bool enabled = 4;
 
   // Timestamp when this policy was created (Unix epoch nanoseconds)
-  fixed64 created_at_unix_nano = 6;
+  fixed64 created_at_unix_nano = 5;
 
   // Timestamp when this policy was last modified (Unix epoch nanoseconds)
-  fixed64 modified_at_unix_nano = 7;
+  fixed64 modified_at_unix_nano = 6;
 
-  // These labels can be used by an implementation to intelligently
-  // compile and route telemetry.
-  // Labels MAY contain metadata about the telemetry types this policy applies to.
-  // The key could be telemetry.types="type1,type2,type3"
-  repeated opentelemetry.proto.common.v1.KeyValue labels = 8;
+  // Labels for metadata and routing
+  repeated opentelemetry.proto.common.v1.KeyValue labels = 7;
 
-  // Policy configuration. Exactly one must be set.
-  oneof config {
-    LogFilterConfig log_filter = 9;
-    LogTrimConfig log_trim = 10;
+  // Target configuration. Exactly one must be set.
+  oneof target {
+    LogTarget log = 10;
+    // MetricTarget metric = 11; // Reserved for future use
   }
 }
 
 // =============================================================================
-// Core Policy Types
+// Policy Stages
 // =============================================================================
 
-// PolicyType identifies the specific use case for a policy.
-// Policies of the same type can be merged; different types cannot.
-enum PolicyType {
-  POLICY_TYPE_UNSPECIFIED = 0;
-  POLICY_TYPE_LOG_FILTER = 1; // Define how logs are filtered (keep/drop)
-  POLICY_TYPE_LOG_TRIM = 2; // Define how log fields are trimmed (removal)
+// PolicyStage identifies the execution stage for a policy.
+enum PolicyStage {
+  POLICY_STAGE_UNSPECIFIED = 0;
+  POLICY_STAGE_LOG_FILTER = 1;    // Log filtering stage (keep/drop decisions)
+  POLICY_STAGE_LOG_TRANSFORM = 2; // Log transformation stage (field modifications)
 }
 
 // =============================================================================
-// Sync Protocol (for Policy Providers)
+// Sync Protocol (for HTTP/gRPC Policy Providers)
 // =============================================================================
 
 // ClientMetadata contains information about the client requesting policies.
 message ClientMetadata {
-  // Policy types this client supports/wants
-  repeated PolicyType supported_policy_types = 1;
+  // Policy stages this client supports
+  repeated PolicyStage supported_policy_stages = 1;
 
   // Additional metadata labels
   // NOTE FOR TERO:
