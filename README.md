@@ -17,15 +17,14 @@ We saw this happen across thousands of Vector deployments. Configs that started 
 
 ## A different model
 
-```json
-{
-  "id": "drop-checkout-debug-logs",
-  "match": {
-    "service": "checkout-api",
-    "severity": "DEBUG"
-  },
-  "action": "drop"
-}
+```yaml
+id: drop-checkout-debug-logs
+name: Drop checkout debug logs
+log:
+  match:
+    resource.service.name: checkout-api
+    severity_text: DEBUG
+  keep: none
 ```
 
 A policy does one thing. You read it and know exactly what it does. No context needed.
@@ -54,7 +53,7 @@ A policy does one thing. You read it and know exactly what it does. No context n
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Logs arrive. The runtime matches against all policies in parallel. No sequential bottleneck. Matching policies contribute actions to fixed stages—filter first, then transform. If any policy drops the log, it's gone. Otherwise transforms apply and the log flows out.
+Telemetry arrives. The runtime matches against all policies in parallel. No sequential bottleneck. Matching policies contribute to fixed stages—`keep` first, then `transform`. If any policy drops the telemetry, it's gone. Otherwise transforms apply and it flows out.
 
 Policies are independent by design. Ten thousand policies execute as fast as ten.
 

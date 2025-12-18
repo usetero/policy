@@ -33,21 +33,23 @@ A policy is a single rule that matches telemetry and declares what should happen
 ```yaml
 id: drop-checkout-debug-logs
 name: Drop checkout debug logs
-match:
-  resource.service.name: checkout-api
-  severity_text: DEBUG
-keep: none
+log:
+  match:
+    resource.service.name: checkout-api
+    severity_text: DEBUG
+  keep: none
 ```
 
 ```yaml
 id: redact-payment-pii
 name: Redact PII from payment service
-match:
-  resource.service.name: payment-api
-transform:
-  redact:
-    - attributes.user.email
-    - attributes.user.phone
+log:
+  match:
+    resource.service.name: payment-api
+  transform:
+    redact:
+      - attributes.user.email
+      - attributes.user.phone
 ```
 
 The first policy drops debug logs from checkout-api. The second redacts PII from payment-api logs. You can read each one and understand exactly what it does without any other context. They don't depend on each other. They don't require understanding a pipeline or DAG. Each is complete in itself.
@@ -78,13 +80,15 @@ Every policy has the following fields:
 | `name` | No | Human-readable name. |
 | `description` | No | Explanation of what the policy does and why it exists. |
 | `enabled` | No | Whether the policy is active. Defaults to `true`. |
-| `match` | Yes | Predicate that determines which telemetry this policy applies to. |
-| `keep` | No | Whether to keep or discard matching telemetry. Defaults to `all`. |
-| `transform` | No | Transformations to apply to matching telemetry. |
+| `log` | One of | Target for log policies. Contains `match`, `keep`, and `transform`. |
+| `metric` | One of | Target for metric policies. Contains `match`, `keep`, and `transform`. |
 
-A policy must specify `keep` (with a value other than `all`), `transform`, or both. A policy with only `match` is invalid—it would match telemetry but do nothing.
+A policy must specify exactly one target: `log` or `metric`. Within the target, `match` is required, and at least one of `keep` (with a value other than `all`) or `transform` must be specified.
 
-The `match` field defines a predicate over the OpenTelemetry data model. The `keep` field controls whether telemetry survives (drop, sample, rate limit). The `transform` field specifies modifications to apply. Both are detailed in the following sections.
+The target contains:
+- `match` — Predicate that determines which telemetry this policy applies to.
+- `keep` — Whether to keep or discard matching telemetry. Defaults to `all`.
+- `transform` — Transformations to apply to matching telemetry.
 
 ## Internal Details
 
@@ -99,19 +103,20 @@ id: sanitize-payment-logs
 name: Sanitize payment logs
 description: Remove password, redact email, and mark as sanitized
 enabled: true
-match:
-  resource.service.name: payment-api
-transform:
-  remove:
-    - attributes.user.password
-  redact:
-    - attributes.user.email
-  add:
-    - field: attributes.sanitized
-      value: "true"
+log:
+  match:
+    resource.service.name: payment-api
+  transform:
+    remove:
+      - attributes.user.password
+    redact:
+      - attributes.user.email
+    add:
+      - field: attributes.sanitized
+        value: "true"
 ```
 
-The structure mirrors execution order. Within `transform`, substages run in a fixed sequence: remove → redact → rename → add.
+The structure makes the target type explicit (`log` or `metric`). Within `transform`, substages run in a fixed sequence: remove → redact → rename → add.
 
 Field values in `match` can be:
 
@@ -138,9 +143,10 @@ Field names use dot notation to reference nested structures. This maps directly 
 To negate a match, use the `not` prefix:
 
 ```yaml
-match:
-  resource.service.name: checkout-api
-  not:severity_text: DEBUG  # matches anything except DEBUG
+log:
+  match:
+    resource.service.name: checkout-api
+    not:severity_text: DEBUG  # matches anything except DEBUG
 ```
 
 The `not:` prefix inverts the match—the condition succeeds when the field does *not* match the value.
@@ -170,25 +176,28 @@ Examples:
 ```yaml
 # Drop all debug logs
 id: drop-debug
-match:
-  severity_text: DEBUG
-keep: none
+log:
+  match:
+    severity_text: DEBUG
+  keep: none
 ```
 
 ```yaml
 # Sample 10% of healthcheck logs
 id: sample-healthchecks
-match:
-  body: /healthcheck/
-keep: 10%
+log:
+  match:
+    body: /healthcheck/
+  keep: 10%
 ```
 
 ```yaml
 # Rate limit noisy service to 100 logs per second
 id: ratelimit-noisy-service
-match:
-  resource.service.name: noisy-api
-keep: 100/s
+log:
+  match:
+    resource.service.name: noisy-api
+  keep: 100/s
 ```
 
 If multiple policies match the same telemetry and specify different `keep` values, the most restrictive wins. `none` beats `10%` beats `100%`.
@@ -211,19 +220,22 @@ This ordering is deliberate:
 Each substage operates on the result of the previous one. This ordering eliminates conflicts and makes policies easier to write—you target fields as they exist in the source data, not as they might be transformed by other policies.
 
 ```yaml
-transform:
-  remove:
-    - attributes.user.password
-    - attributes.user.ssn
-  redact:
-    - attributes.user.email
-    - attributes.user.phone
-  rename:
-    - from: attributes.user_id
-      to: attributes.user.id
-  add:
-    - field: attributes.sanitized
-      value: "true"
+log:
+  match:
+    resource.service.name: payment-api
+  transform:
+    remove:
+      - attributes.user.password
+      - attributes.user.ssn
+    redact:
+      - attributes.user.email
+      - attributes.user.phone
+    rename:
+      - from: attributes.user_id
+        to: attributes.user.id
+    add:
+      - field: attributes.sanitized
+        value: "true"
 ```
 
 Within each substage, if multiple policies target the same field, last write wins. This is rare in practice—it usually indicates a user error, and the result is deterministic regardless.
@@ -266,11 +278,14 @@ Each transform type and its syntax:
 A list of fields to delete:
 
 ```yaml
-transform:
-  remove:
-    - attributes.user.password
-    - attributes.user.ssn
-    - body  # removes the entire log body
+log:
+  match:
+    resource.service.name: payment-api
+  transform:
+    remove:
+      - attributes.user.password
+      - attributes.user.ssn
+      - body  # removes the entire log body
 ```
 
 **redact**
@@ -278,11 +293,14 @@ transform:
 A list of fields to mask. Optionally specify a custom replacement:
 
 ```yaml
-transform:
-  redact:
-    - attributes.user.email
-    - field: attributes.user.phone
-      replacement: "[PHONE REDACTED]"  # optional, defaults to [REDACTED]
+log:
+  match:
+    resource.service.name: payment-api
+  transform:
+    redact:
+      - attributes.user.email
+      - field: attributes.user.phone
+        replacement: "[PHONE REDACTED]"  # optional, defaults to [REDACTED]
 ```
 
 **rename**
@@ -290,12 +308,15 @@ transform:
 A list of field renames:
 
 ```yaml
-transform:
-  rename:
-    - from: attributes.user_id
-      to: attributes.user.id
-    - from: attributes.ts
-      to: attributes.timestamp
+log:
+  match:
+    resource.service.name: payment-api
+  transform:
+    rename:
+      - from: attributes.user_id
+        to: attributes.user.id
+      - from: attributes.ts
+        to: attributes.timestamp
 ```
 
 **add**
@@ -303,12 +324,15 @@ transform:
 A list of fields to insert:
 
 ```yaml
-transform:
-  add:
-    - field: attributes.processed_by
-      value: policy-engine
-    - field: attributes.environment
-      value: production
+log:
+  match:
+    resource.service.name: payment-api
+  transform:
+    add:
+      - field: attributes.processed_by
+        value: policy-engine
+      - field: attributes.environment
+        value: production
 ```
 
 ### Runtime Behavior

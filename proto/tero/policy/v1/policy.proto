@@ -5,7 +5,6 @@ package tero.policy.v1;
 option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 
 // Policy represents a single telemetry processing rule.
-// Each policy matches telemetry and declares what should happen to it.
 message Policy {
   // Unique identifier for this policy.
   string id = 1;
@@ -19,32 +18,49 @@ message Policy {
   // Whether this policy is active. Defaults to true.
   bool enabled = 4;
 
-  // Conditions that determine which telemetry this policy applies to.
-  // All conditions are ANDed together.
-  repeated MatchCondition match = 5;
-
-  // Whether to keep or discard matching telemetry.
-  // Values: "all" (default), "none", "N%", "N/s", "N/m"
-  string keep = 6;
-
-  // Transformations to apply to matching telemetry.
-  Transform transform = 7;
+  // The target telemetry type and what to do with it.
+  oneof target {
+    LogTarget log = 10;
+    MetricTarget metric = 11;
+  }
 }
 
-// MatchCondition defines a single matching predicate.
-message MatchCondition {
-  // The field to match against (e.g., "resource.service.name", "severity_text", "body").
+// LogTarget defines matching and actions for log records.
+message LogTarget {
+  // Conditions that determine which logs this policy applies to.
+  repeated LogMatchCondition match = 1;
+
+  // Whether to keep or discard matching logs.
+  // Values: "all" (default), "none", "N%", "N/s", "N/m"
+  string keep = 2;
+
+  // Transformations to apply to matching logs.
+  LogTransform transform = 3;
+}
+
+// MetricTarget defines matching and actions for metrics.
+message MetricTarget {
+  // Conditions that determine which metrics this policy applies to.
+  repeated MetricMatchCondition match = 1;
+
+  // Whether to keep or discard matching metrics.
+  // Values: "all" (default), "none", "N%", "N/s", "N/m"
+  string keep = 2;
+
+  // Transformations to apply to matching metrics.
+  MetricTransform transform = 3;
+}
+
+// LogMatchCondition defines a single matching predicate for logs.
+message LogMatchCondition {
+  // The field to match against.
+  // Valid fields: resource.*, severity_text, severity_number, body, attributes.*
   string field = 1;
 
   // Match type. Exactly one must be set.
   oneof match {
-    // Exact string match.
     string exact = 2;
-
-    // Regular expression match.
     string regex = 3;
-
-    // Field existence check. If true, matches when field is present.
     bool exists = 4;
   }
 
@@ -52,9 +68,26 @@ message MatchCondition {
   bool negate = 5;
 }
 
-// Transform defines modifications to apply to telemetry.
+// MetricMatchCondition defines a single matching predicate for metrics.
+message MetricMatchCondition {
+  // The field to match against.
+  // Valid fields: resource.*, name, attributes.*
+  string field = 1;
+
+  // Match type. Exactly one must be set.
+  oneof match {
+    string exact = 2;
+    string regex = 3;
+    bool exists = 4;
+  }
+
+  // If true, inverts the match result.
+  bool negate = 5;
+}
+
+// LogTransform defines modifications to apply to logs.
 // Substages execute in order: remove → redact → rename → add.
-message Transform {
+message LogTransform {
   // Fields to delete.
   repeated string remove = 1;
 
@@ -65,6 +98,23 @@ message Transform {
   repeated Rename rename = 3;
 
   // Fields to insert.
+  repeated Add add = 4;
+}
+
+// MetricTransform defines modifications to apply to metrics.
+// Substages execute in order: remove → redact → rename → add.
+// Note: body is not valid for metrics.
+message MetricTransform {
+  // Attributes to delete.
+  repeated string remove = 1;
+
+  // Attributes to mask.
+  repeated Redact redact = 2;
+
+  // Attributes to rename.
+  repeated Rename rename = 3;
+
+  // Attributes to insert.
   repeated Add add = 4;
 }
 
