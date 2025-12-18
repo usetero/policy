@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package tero.policy.v1;
+
+option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
+
+// Policy represents a single telemetry processing rule.
+// Each policy matches telemetry and declares what should happen to it.
+message Policy {
+  // Unique identifier for this policy.
+  string id = 1;
+
+  // Human-readable name.
+  string name = 2;
+
+  // Explanation of what this policy does and why it exists.
+  string description = 3;
+
+  // Whether this policy is active. Defaults to true.
+  bool enabled = 4;
+
+  // Conditions that determine which telemetry this policy applies to.
+  // All conditions are ANDed together.
+  repeated MatchCondition match = 5;
+
+  // Whether to keep or discard matching telemetry.
+  // Values: "all" (default), "none", "N%", "N/s", "N/m"
+  string keep = 6;
+
+  // Transformations to apply to matching telemetry.
+  Transform transform = 7;
+}
+
+// MatchCondition defines a single matching predicate.
+message MatchCondition {
+  // The field to match against (e.g., "resource.service.name", "severity_text", "body").
+  string field = 1;
+
+  // Match type. Exactly one must be set.
+  oneof match {
+    // Exact string match.
+    string exact = 2;
+
+    // Regular expression match.
+    string regex = 3;
+
+    // Field existence check. If true, matches when field is present.
+    bool exists = 4;
+  }
+
+  // If true, inverts the match result.
+  bool negate = 5;
+}
+
+// Transform defines modifications to apply to telemetry.
+// Substages execute in order: remove → redact → rename → add.
+message Transform {
+  // Fields to delete.
+  repeated string remove = 1;
+
+  // Fields to mask.
+  repeated Redact redact = 2;
+
+  // Fields to rename.
+  repeated Rename rename = 3;
+
+  // Fields to insert.
+  repeated Add add = 4;
+}
+
+// Redact masks a field value.
+message Redact {
+  // The field to redact.
+  string field = 1;
+
+  // Replacement value. Defaults to "[REDACTED]".
+  string replacement = 2;
+}
+
+// Rename changes a field key.
+message Rename {
+  // The original field name.
+  string from = 1;
+
+  // The new field name.
+  string to = 2;
+}
+
+// Add inserts a new field.
+message Add {
+  // The field name to insert.
+  string field = 1;
+
+  // The value to insert.
+  string value = 2;
+}

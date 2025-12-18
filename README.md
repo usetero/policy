@@ -1,17 +1,77 @@
-# Policy Spec
+# Policies
 
-This repository houses an experimental version of the specification for the basis of the OpenTelemetry (Otel) Policy. The Otel policy is proposed in [this OTEP](https://github.com/open-telemetry/opentelemetry-specification/pull/4738). The Tero Policy specification is designed to be merged in the future with the OpenTelemetry Policy specification. The goal of this repository is to explore what the Policy specification should have. This methodology is inspired by that from the goals set forth by Lightstep in developing OTAP [[1](https://github.com/open-telemetry/otel-arrow/), [2](https://github.com/open-telemetry/community/issues/1332), [3](https://opentelemetry.io/blog/2023/otel-arrow/)].
+Atomic, portable rules for processing telemetry. From the creator of [Vector](https://vector.dev).
 
-# Goals
+## The problem
 
-1. Policies are generic to telemetry type and data format
-2. Policies are identified by a unique type
-3. Policies must be idempotent
-4. Policies are implementation agnostic
-5. A policy provider should only be responsible for its own policies.
+Every telemetry tool has the same configuration problem. Datadog Agent, OTel Collector, Vector, Fluent Bit—they all work the same way: you write a config that defines processing rules, and data flows through sequentially.
 
-# Constraints
+This breaks down:
 
-1. This repository does not define a set of policies, only the proto format and expected behavior therein
-2. This repository does not implement a policy provider nor an underlying transport
-3. Policies must be mergable and define a strategy for handling overlapping clauses for the same type
+- Configs grow into thousands of lines that nobody fully understands
+- You need to understand the whole config to safely change any part
+- Performance degrades as you add rules—a hundred regex patterns might work, a thousand won't
+- AI can't help because the config is too interconnected
+
+We saw this happen across thousands of Vector deployments. Configs that started clean became unmaintainable. Everyone hits the same wall.
+
+## A different model
+
+```json
+{
+  "id": "drop-checkout-debug-logs",
+  "match": {
+    "service": "checkout-api",
+    "severity": "DEBUG"
+  },
+  "action": "drop"
+}
+```
+
+A policy does one thing. You read it and know exactly what it does. No context needed.
+
+## How it works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Traditional                            │
+│                                                             │
+│   Log ──▶ Component A ──▶ Component B ──▶ Component C ──▶ Out  │
+│              │               │               │              │
+│          bottleneck      bottleneck      bottleneck         │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                       Policies                              │
+│                                                             │
+│                    ┌─▶ Policy 1 ─┐                         │
+│                    ├─▶ Policy 2 ─┤                         │
+│   Log ──▶ Match ──┼─▶ Policy 3 ─┼──▶ Merge ──▶ Out        │
+│                    ├─▶ Policy 4 ─┤                         │
+│                    └─▶ Policy N ─┘                         │
+│                                                             │
+│                 parallel execution                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Logs arrive. The runtime matches against all policies in parallel. No sequential bottleneck. Matching policies contribute actions to fixed stages—filter first, then transform. If any policy drops the log, it's gone. Otherwise transforms apply and the log flows out.
+
+Policies are independent by design. Ten thousand policies execute as fast as ten.
+
+## What this unlocks
+
+**Scale.** Tens of thousands of policies without performance degradation. Drop exactly the log patterns you want, not broad categories.
+
+**AI generation.** Each policy is a bounded problem. No DAG to reason about. AI can generate and manage policies at scale.
+
+**Portability.** Policies use OpenTelemetry's data model. Same policy works across any runtime that implements the spec.
+
+**Simplicity.** Add a policy without understanding the others. Remove one without fear. Each one stands alone.
+
+## Get started
+
+- **[Edge](https://github.com/usetero/edge)** — A minimal, lightweight proxy that enforces policies. Deploy it anywhere in your infrastructure—before your tools, after them, as a sidecar. Takes minutes to set up.
+
+- **[policy-rs](https://github.com/usetero/policy-rs)** — Rust SDK for implementing the policy spec in your own tools.
+
+- **[policy-zig](https://github.com/usetero/policy-zig)** — Zig SDK for implementing the policy spec in your own tools.
