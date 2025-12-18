@@ -55,7 +55,7 @@ message Policy {
 // PolicyStage identifies the execution stage for a policy.
 enum PolicyStage {
   POLICY_STAGE_UNSPECIFIED = 0;
-  POLICY_STAGE_LOG_FILTER = 1;    // Log filtering stage (keep/drop decisions)
+  POLICY_STAGE_LOG_FILTER = 1; // Log filtering stage (keep/drop decisions)
   POLICY_STAGE_LOG_TRANSFORM = 2; // Log transformation stage (field modifications)
 }
 
