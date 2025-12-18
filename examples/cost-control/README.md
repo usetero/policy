@@ -25,8 +25,8 @@ The problem isn't knowing what to filter. It's managing it at scale. You have hu
 ### Foundation (human-written)
 
 - `drop-debug-logs.yaml` - Drop all DEBUG severity logs
+- `drop-trace-logs.yaml` - Drop all TRACE severity logs
 - `drop-health-checks.yaml` - Drop health check request logs
-- `sample-info-logs.yaml` - Keep only 10% of INFO logs
 
 ### Generated (per log event)
 

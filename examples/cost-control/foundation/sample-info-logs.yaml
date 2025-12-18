@@ -1,7 +1,0 @@
-id: sample-info-logs
-name: Sample INFO logs at 10%
-
-log:
-  match:
-    severity_text: INFO
-  keep: 10%
