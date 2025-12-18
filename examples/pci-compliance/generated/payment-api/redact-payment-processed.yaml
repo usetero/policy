@@ -1,0 +1,11 @@
+id: payment-api-redact-payment-processed
+name: Redact payment processed events
+
+log:
+  match:
+    resource.service.name: payment-api
+    body: /payment processed/
+  transform:
+    redact:
+      - field: attributes.card_last_four
+      - field: attributes.billing_address

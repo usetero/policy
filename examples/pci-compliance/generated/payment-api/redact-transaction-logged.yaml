@@ -1,0 +1,11 @@
+id: payment-api-redact-transaction-logged
+name: Redact transaction logged events
+
+log:
+  match:
+    resource.service.name: payment-api
+    body: /transaction logged/
+  transform:
+    redact:
+      - field: attributes.card_number
+      - field: attributes.account_id

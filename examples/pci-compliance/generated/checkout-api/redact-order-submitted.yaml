@@ -1,0 +1,11 @@
+id: checkout-api-redact-order-submitted
+name: Redact order submitted events
+
+log:
+  match:
+    resource.service.name: checkout-api
+    body: /order submitted/
+  transform:
+    redact:
+      - field: attributes.payment_method
+      - field: attributes.billing_email

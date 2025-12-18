@@ -1,0 +1,9 @@
+id: redact-cvv
+name: Redact CVV codes
+
+log:
+  match:
+    attributes.cvv: exists
+  transform:
+    redact:
+      - field: attributes.cvv
