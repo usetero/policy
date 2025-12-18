@@ -32,25 +32,25 @@ A policy does one thing. You read it and know exactly what it does. No context n
 ## How it works
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Traditional                            │
-│                                                             │
-│   Log ──▶ Component A ──▶ Component B ──▶ Component C ──▶ Out  │
-│              │               │               │              │
-│          bottleneck      bottleneck      bottleneck         │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                          Traditional                            │
+│                                                                 │
+│   Log ──▶ Component A ──▶ Component B ──▶ Component C ──▶ Out   │
+│               │                │               │                │
+│           bottleneck      bottleneck      bottleneck            │
+└─────────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────────────┐
-│                       Policies                              │
-│                                                             │
-│                    ┌─▶ Policy 1 ─┐                         │
-│                    ├─▶ Policy 2 ─┤                         │
-│   Log ──▶ Match ──┼─▶ Policy 3 ─┼──▶ Merge ──▶ Out        │
-│                    ├─▶ Policy 4 ─┤                         │
-│                    └─▶ Policy N ─┘                         │
-│                                                             │
-│                 parallel execution                          │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                           Policies                              │
+│                                                                 │
+│                        ┌─▶ Policy 1 ─┐                          │
+│                        ├─▶ Policy 2 ─┤                          │
+│        Log ──▶ Match ──┼─▶ Policy 3 ─┼──▶ Merge ──▶ Out         │
+│                        ├─▶ Policy 4 ─┤                          │
+│                        └─▶ Policy N ─┘                          │
+│                                                                 │
+│                      parallel execution                         │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 Telemetry arrives. The runtime matches against all policies in parallel. No sequential bottleneck. Matching policies contribute to fixed stages—`keep` first, then `transform`. If any policy drops the telemetry, it's gone. Otherwise transforms apply and it flows out.
