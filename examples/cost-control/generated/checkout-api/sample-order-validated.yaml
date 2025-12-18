@@ -1,0 +1,8 @@
+id: checkout-api-sample-order-validated
+name: Sample order validated logs
+
+log:
+  match:
+    resource.service.name: checkout-api
+    body: /order validated/
+  keep: 50%

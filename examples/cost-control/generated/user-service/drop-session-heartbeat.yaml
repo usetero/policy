@@ -1,0 +1,8 @@
+id: user-service-drop-session-heartbeat
+name: Drop session heartbeat logs
+
+log:
+  match:
+    resource.service.name: user-service
+    body: /session heartbeat/
+  keep: none

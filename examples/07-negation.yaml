@@ -1,7 +1,0 @@
-id: drop-non-prod-logs
-name: Drop logs from non-production environments
-
-log:
-  match:
-    not:resource.deployment.environment: production
-  keep: none

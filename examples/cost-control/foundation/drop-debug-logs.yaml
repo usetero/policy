@@ -1,5 +1,5 @@
 id: drop-debug-logs
-name: Drop debug logs
+name: Drop all debug logs
 
 log:
   match:

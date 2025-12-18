@@ -1,8 +1,0 @@
-id: drop-checkout-debug
-name: Drop debug logs from checkout service
-
-log:
-  match:
-    resource.service.name: checkout-api
-    severity_text: DEBUG
-  keep: none

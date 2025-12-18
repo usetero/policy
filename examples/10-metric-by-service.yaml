@@ -1,7 +1,0 @@
-id: sample-cache-metrics
-name: Sample cache service metrics
-
-metric:
-  match:
-    resource.service.name: cache-service
-  keep: 1%

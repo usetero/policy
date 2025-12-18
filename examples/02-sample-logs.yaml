@@ -1,7 +1,0 @@
-id: sample-high-volume-logs
-name: Sample high volume logs
-
-log:
-  match:
-    resource.service.name: event-processor
-  keep: 10%

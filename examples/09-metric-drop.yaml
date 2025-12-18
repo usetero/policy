@@ -1,7 +1,0 @@
-id: drop-internal-metrics
-name: Drop internal debug metrics
-
-metric:
-  match:
-    name: /^internal\./
-  keep: none

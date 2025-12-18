@@ -3,5 +3,5 @@ name: Drop health check logs
 
 log:
   match:
-    body: /^(GET|HEAD) \/health/
+    body: /GET \/health/
   keep: none

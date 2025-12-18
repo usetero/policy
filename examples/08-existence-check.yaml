@@ -1,7 +1,0 @@
-id: require-trace-context
-name: Drop logs without trace context
-
-log:
-  match:
-    not:trace_id: exists
-  keep: none

@@ -1,0 +1,8 @@
+id: user-service-drop-cache-hit
+name: Drop cache hit logs
+
+log:
+  match:
+    resource.service.name: user-service
+    body: /cache hit for user/
+  keep: none

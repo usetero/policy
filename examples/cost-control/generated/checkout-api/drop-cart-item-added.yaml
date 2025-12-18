@@ -1,0 +1,8 @@
+id: checkout-api-drop-cart-item-added
+name: Drop cart item added logs
+
+log:
+  match:
+    resource.service.name: checkout-api
+    body: /item added to cart/
+  keep: none
