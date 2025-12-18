@@ -1,0 +1,10 @@
+id: redact-pan
+name: Redact primary account numbers
+
+log:
+  match:
+    - log_attribute: pan
+      exists: true
+  transform:
+    redact:
+      - log_attribute: pan

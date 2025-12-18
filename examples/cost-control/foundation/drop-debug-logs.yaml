@@ -1,0 +1,8 @@
+id: drop-debug-logs
+name: Drop debug and trace logs
+
+log:
+  match:
+    - log_field: severity_text
+      regex: "^(DEBUG|TRACE)$"
+  keep: none

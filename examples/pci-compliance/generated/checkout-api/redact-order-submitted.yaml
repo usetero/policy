@@ -1,0 +1,13 @@
+id: checkout-api-redact-order-submitted
+name: Redact order submitted events
+
+log:
+  match:
+    - resource_attribute: service.name
+      exact: checkout-api
+    - log_field: body
+      regex: "order submitted"
+  transform:
+    redact:
+      - log_attribute: payment_method
+      - log_attribute: billing_email

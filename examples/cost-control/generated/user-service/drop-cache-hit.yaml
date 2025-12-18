@@ -1,0 +1,10 @@
+id: user-service-drop-cache-hit
+name: Drop cache hit logs
+
+log:
+  match:
+    - resource_attribute: service.name
+      exact: user-service
+    - log_field: body
+      regex: "cache hit for user"
+  keep: none
