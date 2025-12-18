@@ -1,0 +1,7 @@
+id: drop-health-checks
+name: Drop health check logs
+
+log:
+  match:
+    body: /^(GET|HEAD) \/health/
+  keep: none

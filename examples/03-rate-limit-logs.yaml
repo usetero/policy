@@ -1,0 +1,7 @@
+id: rate-limit-auth-logs
+name: Rate limit auth service logs
+
+log:
+  match:
+    resource.service.name: auth-service
+  keep: 100/s

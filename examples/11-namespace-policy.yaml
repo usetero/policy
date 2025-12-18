@@ -1,0 +1,7 @@
+id: drop-test-namespace
+name: Drop all telemetry from test namespace
+
+log:
+  match:
+    resource.k8s.namespace.name: test
+  keep: none

@@ -1,0 +1,7 @@
+id: drop-debug-logs
+name: Drop debug logs
+
+log:
+  match:
+    severity_text: DEBUG
+  keep: none

@@ -1,0 +1,11 @@
+id: redact-pii
+name: Redact PII from payment logs
+
+log:
+  match:
+    resource.service.name: payment-api
+  transform:
+    redact:
+      - field: attributes.credit_card
+      - field: attributes.email
+      - field: attributes.ssn

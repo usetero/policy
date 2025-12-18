@@ -1,0 +1,22 @@
+id: normalize-user-logs
+name: Normalize and sanitize user service logs
+
+log:
+  match:
+    resource.service.name: user-service
+  transform:
+    remove:
+      - attributes.internal_debug
+      - attributes.stack_trace
+    redact:
+      - field: attributes.password
+      - field: attributes.api_key
+        replacement: "[API_KEY]"
+    rename:
+      - from: attributes.usr
+        to: attributes.user_id
+      - from: attributes.ts
+        to: attributes.timestamp
+    add:
+      - field: attributes.processed_by
+        value: tero-policy
