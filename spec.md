@@ -1,248 +1,244 @@
 # Policy Specification
 
-This document defines the policy specification—a format for expressing telemetry processing rules that are atomic, portable, and executable at scale.
+Status: Draft
 
-The spec is designed for implementation across the telemetry ecosystem. Policies use OpenTelemetry's data model, making them portable across any runtime that implements this specification: collectors, agents, proxies, or SDKs.
+## Abstract
 
-## Motivation
+This document specifies the structure and semantics of telemetry policies. A policy is an atomic, portable rule for processing telemetry data. Policies are designed for implementation across the telemetry ecosystem using OpenTelemetry's data model.
 
-Telemetry tools share a configuration problem. Whether you're using the OpenTelemetry Collector, Vector, Fluent Bit, or a vendor agent like Datadog's, the pattern is the same: you write a configuration that defines processing rules, and data flows through sequentially.
+## Overview
 
-This model breaks down in predictable ways:
+A policy declares a single intent: match specific telemetry and apply an action. Policies are independent units that do not reference each other and do not depend on execution order. This independence enables parallel evaluation and scaling to large policy sets without performance degradation.
 
-- **Configs grow organically.** You find a problem, add a rule. Another problem, another rule. A year later you have thousands of lines that nobody fully understands. The configuration becomes the accumulated knowledge of every issue you've ever hit, but that knowledge isn't legible. You can't look at line 847 and know why it exists or what depends on it.
+Policies use the [OpenTelemetry data model](https://opentelemetry.io/docs/specs/otel/overview/) for field references, ensuring portability across any runtime that implements this specification.
 
-- **Configs require global reasoning.** To safely change one part, you need to understand the whole. Data flows through a DAG of components—what shape is it at this point? What came before? What breaks if you modify this? The cognitive load grows with the config size until changes become risky and reviews become superficial.
+## Design Principles
 
-- **Configs don't scale.** You want to drop a hundred noisy log patterns? That might work. A thousand? Ten thousand? Performance degrades. The architecture wasn't designed for this level of specificity. So you compromise—drop broad categories and accept losing signal with the noise.
+This specification follows the [OpenTelemetry Specification Principles](https://opentelemetry.io/docs/specs/otel/specification-principles/):
 
-- **AI can't help.** Ask a model to modify a 5,000 line configuration with complex interdependencies and watch it break things. The context is too large, the dependencies too hidden. The format wasn't designed for machine generation.
+- **User Driven**: Policies address real-world telemetry processing needs.
+- **General**: The specification defines behavior, not implementation details.
+- **Stable**: Changes preserve backward compatibility.
+- **Consistent**: Concepts apply uniformly across telemetry signals.
+- **Simple**: The policy model is minimal and unambiguous.
 
-These problems compound. Teams stop making improvements because changes are risky. Costs grow because nobody can safely add the filtering rules that would reduce them. Knowledge stays trapped in the config, inaccessible to anyone who wasn't there when each rule was added.
+Additionally, policies adhere to these constraints:
 
-Policies are a different model. Instead of a monolithic configuration, you have independent rules—each one atomic, self-contained, and understandable in isolation. The system is designed from the ground up to handle tens of thousands of policies without degradation. The format is simple enough that AI can generate and manage policies at scale.
+- **Atomic**: A policy serves one intent with one matcher and one action set.
+- **Self-contained**: A policy MUST NOT reference or depend on other policies.
+- **Fail-open**: Policy evaluation failures MUST NOT cause telemetry loss.
+- **Idempotent**: Applying the same policy multiple times produces the same result.
 
-This specification defines that model.
+## Policy Structure
 
-## Explanation
+### Required Fields
 
-### What Policies Are
+A policy MUST contain the following fields:
 
-A policy is a single rule that matches telemetry and declares what should happen to it. One policy, one intent.
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier for the policy. |
+| `name` | string | Human-readable name. |
 
-```yaml
-id: drop-checkout-debug-logs
-name: Drop checkout debug logs
-log:
-  match:
-    resource.service.name: checkout-api
-    severity_text: DEBUG
-  keep: none
+### Optional Fields
+
+A policy MAY contain the following fields:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `description` | string | empty | Explanation of the policy's purpose. |
+| `enabled` | boolean | `true` | Whether the policy is active. |
+| `created_at_unix_nano` | fixed64 | - | Creation timestamp in Unix epoch nanoseconds. |
+| `modified_at_unix_nano` | fixed64 | - | Last modification timestamp in Unix epoch nanoseconds. |
+| `labels` | KeyValue[] | empty | Metadata labels for routing and organization. |
+
+### Target
+
+A policy MUST specify exactly one target. The target defines which telemetry signal the policy applies to and contains the matching and action configuration.
+
+Currently defined targets:
+
+| Target | Description |
+|--------|-------------|
+| `log` | Log record processing. See [Log Target](#log-target). |
+
+Future versions MAY define additional targets (e.g., `metric`, `trace`).
+
+## Log Target
+
+The `log` target defines matching criteria and actions for log records.
+
+### Structure
+
+```
+LogTarget {
+  match:     LogMatcher[]   // REQUIRED, at least one matcher
+  keep:      string         // OPTIONAL, defaults to "all"
+  transform: LogTransform   // OPTIONAL
+}
 ```
 
-```yaml
-id: redact-payment-pii
-name: Redact PII from payment service
-log:
-  match:
-    resource.service.name: payment-api
-  transform:
-    redact:
-      - attributes.user.email
-      - attributes.user.phone
+A log target MUST contain at least one matcher. A log target MUST specify either a `keep` value other than `"all"` or a `transform`, or both.
+
+### Log Matching
+
+Matchers identify which log records a policy applies to. Multiple matchers are combined with AND logic: all matchers MUST match for the policy to apply.
+
+#### LogMatcher Structure
+
+```
+LogMatcher {
+  field:  <field selector>  // REQUIRED, exactly one
+  match:  <match type>      // REQUIRED, exactly one
+  negate: boolean           // OPTIONAL, defaults to false
+}
 ```
 
-The first policy drops debug logs from checkout-api. The second redacts PII from payment-api logs. You can read each one and understand exactly what it does without any other context. They don't depend on each other. They don't require understanding a pipeline or DAG. Each is complete in itself.
+#### Field Selection
 
-A system might have ten policies or ten thousand. Each one remains this simple. The complexity of "how do all these policies execute together" is handled by the runtime, not by the policy author.
+A matcher MUST specify exactly one field selector:
 
-### Core Constraints
+| Selector | Type | Description |
+|----------|------|-------------|
+| `log_field` | LogField enum | Well-known log record field. |
+| `log_attribute` | string | Log record attribute by key. |
+| `resource_attribute` | string | Resource attribute by key. |
+| `scope_attribute` | string | Instrumentation scope attribute by key. |
 
-Policies are designed around a set of constraints that enable scale and simplicity:
+##### LogField Enum Values
 
-- **Atomic.** A policy serves one intent. It has one matcher and declares what should happen to matching telemetry—whether to keep it, transform it, or both.
-
-- **Self-contained.** A policy doesn't reference other policies. It doesn't depend on execution order. You can read it in isolation and know what it does.
-
-- **Independent execution.** When multiple policies match the same telemetry, they all execute. There's no explicit ordering between policies—the runtime handles coordination through fixed stages.
-
-- **Portable.** Policies use OpenTelemetry's data model for matching. The same policy works across any runtime that implements this spec: collectors, agents, proxies, SDKs.
-
-These constraints are features, not limitations. They're what enable a system to scale to tens of thousands of policies without becoming unmaintainable.
-
-### Policy Structure
-
-Every policy has the following fields:
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `id` | Yes | Unique identifier for the policy. Used for tracking, updates, and metrics. |
-| `name` | No | Human-readable name. |
-| `description` | No | Explanation of what the policy does and why it exists. |
-| `enabled` | No | Whether the policy is active. Defaults to `true`. |
-| `log` | One of | Target for log policies. Contains `match`, `keep`, and `transform`. |
-| `metric` | One of | Target for metric policies. Contains `match`, `keep`, and `transform`. |
-
-A policy must specify exactly one target: `log` or `metric`. Within the target, `match` is required, and at least one of `keep` (with a value other than `all`) or `transform` must be specified.
-
-The target contains:
-- `match` — Predicate that determines which telemetry this policy applies to.
-- `keep` — Whether to keep or discard matching telemetry. Defaults to `all`.
-- `transform` — Transformations to apply to matching telemetry.
-
-## Internal Details
-
-### Policy Format
-
-Policies are authored in YAML. The format is intentionally minimal—every field has a clear purpose, and there's no room for ambiguity.
-
-A complete policy looks like this:
-
-```yaml
-id: sanitize-payment-logs
-name: Sanitize payment logs
-description: Remove password, redact email, and mark as sanitized
-enabled: true
-log:
-  match:
-    resource.service.name: payment-api
-  transform:
-    remove:
-      - attributes.user.password
-    redact:
-      - attributes.user.email
-    add:
-      - field: attributes.sanitized
-        value: "true"
-```
-
-The structure makes the target type explicit (`log` or `metric`). Within `transform`, substages run in a fixed sequence: remove → redact → rename → add.
-
-Field values in `match` can be:
-
-- **Exact strings** — `severity_text: ERROR` matches only "ERROR"
-- **Regular expressions** — Wrapped in slashes: `/^5\d{2}$/` matches 500-599
-- **Existence checks** — `exists` matches any field that is present (regardless of value)
-
-All match conditions are ANDed together. Every condition must match for the policy to apply.
-
-### Matching
-
-Policies match against the OpenTelemetry data model. For logs, the matchable fields are:
-
-| Field | Description |
+| Value | Description |
 |-------|-------------|
-| `resource.*` | Resource attributes identifying the source (e.g., `resource.service.name`, `resource.deployment.environment`) |
-| `severity_text` | Log severity as a string: TRACE, DEBUG, INFO, WARN, ERROR, FATAL |
-| `severity_number` | Log severity as a number (1-24) |
-| `body` | The log message body |
-| `attributes.*` | Log record attributes (e.g., `attributes.user.id`, `attributes.http.status_code`) |
+| `LOG_FIELD_BODY` | The log message body. |
+| `LOG_FIELD_SEVERITY_TEXT` | Severity as string (e.g., "DEBUG", "INFO", "ERROR"). |
+| `LOG_FIELD_TRACE_ID` | Associated trace identifier. |
+| `LOG_FIELD_SPAN_ID` | Associated span identifier. |
+| `LOG_FIELD_EVENT_NAME` | Event name for event logs. |
+| `LOG_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL. |
+| `LOG_FIELD_SCOPE_SCHEMA_URL` | Scope schema URL. |
 
-Field names use dot notation to reference nested structures. This maps directly to OpenTelemetry semantic conventions—`resource.service.name` corresponds to the `service.name` resource attribute in OTel's data model.
+#### Match Types
 
-To negate a match, use the `not` prefix:
+A matcher MUST specify exactly one match type:
 
-```yaml
-log:
-  match:
-    resource.service.name: checkout-api
-    not:severity_text: DEBUG  # matches anything except DEBUG
-```
+| Type | Value Type | Description |
+|------|------------|-------------|
+| `exact` | string | Field value MUST equal the specified string exactly. |
+| `regex` | string | Field value MUST match the regular expression. |
+| `exists` | boolean | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
 
-The `not:` prefix inverts the match—the condition succeeds when the field does *not* match the value.
+Regular expressions MUST use [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation consistency.
 
-For metrics, the matchable fields are:
+#### Negation
 
-| Field | Description |
-|-------|-------------|
-| `resource.*` | Resource attributes identifying the source |
-| `name` | The metric name |
-| `attributes.*` | Metric data point attributes (dimensions/tags) |
+If `negate` is `true`, the match result is inverted. A matcher that would match does not match, and vice versa.
 
 ### Keep
 
-The `keep` field controls whether matching telemetry survives. It unifies dropping, sampling, and rate limiting into a single concept: what percentage or amount of matching telemetry continues to the next stage?
+The `keep` field controls whether matching telemetry survives processing. It unifies dropping, sampling, and rate limiting into a single concept.
 
-| Value | Meaning |
-|-------|---------|
-| `all` | Keep everything (default, can be omitted) |
-| `none` | Drop everything |
-| `N%` | Keep N percent (0-100) |
-| `N/s` | Keep at most N per second |
-| `N/m` | Keep at most N per minute |
+| Value | Description |
+|-------|-------------|
+| `"all"` | Keep all matching telemetry. This is the default. |
+| `"none"` | Drop all matching telemetry. |
+| `"N%"` | Keep N percent of matching telemetry (0-100). |
+| `"N/s"` | Keep at most N records per second. |
+| `"N/m"` | Keep at most N records per minute. |
 
-Examples:
+Implementations MUST support `"all"` and `"none"`. Implementations SHOULD support percentage-based sampling. Implementations MAY support rate limiting.
 
-```yaml
-# Drop all debug logs
-id: drop-debug
-log:
-  match:
-    severity_text: DEBUG
-  keep: none
-```
+When multiple policies match the same telemetry with different `keep` values, the most restrictive value MUST be applied:
 
-```yaml
-# Sample 10% of healthcheck logs
-id: sample-healthchecks
-log:
-  match:
-    body: /healthcheck/
-  keep: 10%
-```
+1. `"none"` takes precedence over any other value.
+2. Lower percentages take precedence over higher percentages.
+3. Rate limits are evaluated independently per policy.
 
-```yaml
-# Rate limit noisy service to 100 logs per second
-id: ratelimit-noisy-service
-log:
-  match:
-    resource.service.name: noisy-api
-  keep: 100/s
-```
+### Log Transform
 
-If multiple policies match the same telemetry and specify different `keep` values, the most restrictive wins. `none` beats `10%` beats `100%`.
+The `transform` field specifies modifications to apply to log records that survive the keep stage.
 
-### Transform
-
-The `transform` field specifies modifications to apply to telemetry that survives the `keep` stage. Transformations are grouped by type, and types execute in a fixed order:
+#### Structure
 
 ```
-remove → redact → rename → add
+LogTransform {
+  remove: LogRemove[]  // OPTIONAL
+  redact: LogRedact[]  // OPTIONAL
+  rename: LogRename[]  // OPTIONAL
+  add:    LogAdd[]     // OPTIONAL
+}
 ```
 
-This ordering is deliberate:
+#### Execution Order
 
-- **Remove first.** Delete unwanted fields before any other processing.
-- **Redact second.** Mask sensitive values in their original field names. This way, a policy targeting `user.email` works regardless of whether another policy later renames that field.
-- **Rename third.** Move fields around after they're cleaned. Policies that redact don't need to know about renamed field names.
-- **Add last.** Insert new fields into the final structure, after all other modifications.
+Transform operations MUST execute in the following order:
 
-Each substage operates on the result of the previous one. This ordering eliminates conflicts and makes policies easier to write—you target fields as they exist in the source data, not as they might be transformed by other policies.
+1. **Remove**: Delete specified fields.
+2. **Redact**: Mask specified field values.
+3. **Rename**: Change field names.
+4. **Add**: Insert new fields.
 
-```yaml
-log:
-  match:
-    resource.service.name: payment-api
-  transform:
-    remove:
-      - attributes.user.password
-      - attributes.user.ssn
-    redact:
-      - attributes.user.email
-      - attributes.user.phone
-    rename:
-      - from: attributes.user_id
-        to: attributes.user.id
-    add:
-      - field: attributes.sanitized
-        value: "true"
+This ordering is normative. Implementations MUST NOT reorder these stages.
+
+#### LogRemove
+
+Removes a field from the log record.
+
+```
+LogRemove {
+  field: <field selector>  // REQUIRED, exactly one
+}
 ```
 
-Within each substage, if multiple policies target the same field, last write wins. This is rare in practice—it usually indicates a user error, and the result is deterministic regardless.
+The field selector uses the same options as LogMatcher: `log_field`, `log_attribute`, `resource_attribute`, or `scope_attribute`.
 
-### Stages
+If the specified field does not exist, the operation MUST be a no-op.
 
-When telemetry arrives, the runtime evaluates all policies that match it. Execution proceeds through fixed stages:
+#### LogRedact
+
+Masks a field value with a replacement string.
+
+```
+LogRedact {
+  field:       <field selector>  // REQUIRED, exactly one
+  replacement: string            // OPTIONAL, defaults to "[REDACTED]"
+}
+```
+
+If the specified field does not exist, the operation MUST be a no-op.
+
+#### LogRename
+
+Changes a field's key to a new name.
+
+```
+LogRename {
+  from:   <field selector>  // REQUIRED, exactly one
+  to:     string            // REQUIRED
+  upsert: boolean           // OPTIONAL, defaults to false
+}
+```
+
+If the source field does not exist, the operation MUST be a no-op.
+
+If `upsert` is `false` and the target field already exists, the operation MUST be a no-op. If `upsert` is `true`, the target field MUST be overwritten.
+
+#### LogAdd
+
+Inserts a new field with a specified value.
+
+```
+LogAdd {
+  field:  <field selector>  // REQUIRED, exactly one
+  value:  string            // REQUIRED
+  upsert: boolean           // OPTIONAL, defaults to false
+}
+```
+
+If `upsert` is `false` and the field already exists, the operation MUST be a no-op. If `upsert` is `true`, the field MUST be overwritten.
+
+## Policy Stages
+
+Policies execute in two fixed stages:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -261,156 +257,95 @@ When telemetry arrives, the runtime evaluates all policies that match it. Execut
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**1. Keep**
+### Stage 1: Keep
 
-All matching policies contribute their `keep` values. The most restrictive value wins. If telemetry is dropped or sampled out, processing stops.
+All matching policies contribute their `keep` values. The runtime evaluates these values and applies the most restrictive result. If telemetry is dropped or sampled out, processing stops.
 
-**2. Transform**
+### Stage 2: Transform
 
-All matching policies contribute their transformations. Substages execute in order: remove → redact → rename → add. Within each substage, all matching policies' actions apply.
+All matching policies contribute their transform operations. Operations execute in the defined order: remove → redact → rename → add. Within each operation type, if multiple policies target the same field, the result is implementation-defined but MUST be deterministic.
 
-### Transform Reference
+Implementations MUST process policies in a consistent order (e.g., alphabetically by ID) to ensure reproducible results.
 
-Each transform type and its syntax:
+## Runtime Requirements
 
-**remove**
+### Evaluation
 
-A list of fields to delete:
+Implementations MAY evaluate policies concurrently. The independence of policies enables parallel matching without coordination.
+
+### Error Handling
+
+Implementations MUST be fail-open:
+
+- If a policy fails to parse, it MUST be skipped. Other policies MUST continue to execute.
+- If a policy fails to evaluate (e.g., invalid regex at runtime), the telemetry MUST pass through unmodified by that policy.
+- Policy failures MUST NOT cause telemetry loss.
+
+Implementations SHOULD log policy evaluation errors for debugging.
+
+### Disabled Policies
+
+Policies with `enabled: false` MUST NOT be evaluated. Implementations MUST treat disabled policies as if they do not exist.
+
+## YAML Representation
+
+While the canonical format is Protocol Buffers, policies MAY be represented in YAML for human authoring. The YAML structure MUST map directly to the protobuf schema.
+
+Example policy in YAML:
 
 ```yaml
+id: drop-checkout-debug-logs
+name: Drop checkout debug logs
+description: Remove debug-level logs from checkout-api to reduce volume
+enabled: true
 log:
   match:
-    resource.service.name: payment-api
+    - resource_attribute: service.name
+      exact: checkout-api
+    - log_field: LOG_FIELD_SEVERITY_TEXT
+      exact: DEBUG
+  keep: none
+```
+
+Example with transform:
+
+```yaml
+id: redact-payment-pii
+name: Redact PII from payment service
+log:
+  match:
+    - resource_attribute: service.name
+      exact: payment-api
   transform:
     remove:
-      - attributes.user.password
-      - attributes.user.ssn
-      - body  # removes the entire log body
-```
-
-**redact**
-
-A list of fields to mask. Optionally specify a custom replacement:
-
-```yaml
-log:
-  match:
-    resource.service.name: payment-api
-  transform:
+      - log_attribute: user.password
     redact:
-      - attributes.user.email
-      - field: attributes.user.phone
-        replacement: "[PHONE REDACTED]"  # optional, defaults to [REDACTED]
-```
-
-**rename**
-
-A list of field renames:
-
-```yaml
-log:
-  match:
-    resource.service.name: payment-api
-  transform:
-    rename:
-      - from: attributes.user_id
-        to: attributes.user.id
-      - from: attributes.ts
-        to: attributes.timestamp
-```
-
-**add**
-
-A list of fields to insert:
-
-```yaml
-log:
-  match:
-    resource.service.name: payment-api
-  transform:
+      - log_attribute: user.email
+      - log_attribute: user.phone
+        replacement: "[PHONE]"
     add:
-      - field: attributes.processed_by
-        value: policy-engine
-      - field: attributes.environment
-        value: production
+      - log_attribute: sanitized
+        value: "true"
+        upsert: true
 ```
 
-### Runtime Behavior
+## Conformance
 
-A few rules govern how runtimes execute policies:
+An implementation conforms to this specification if it:
 
-- **Fail-open.** If a policy fails to evaluate (malformed regex, missing field, etc.), telemetry passes through unmodified. Policies never cause data loss due to errors.
+1. Correctly parses valid policies as defined in this document.
+2. Evaluates matchers according to the specified semantics.
+3. Applies keep logic with proper precedence rules.
+4. Executes transform operations in the specified order.
+5. Maintains fail-open behavior for all error conditions.
+6. Respects the `enabled` field.
 
-- **Matching is parallel.** The runtime may evaluate all policies against incoming telemetry concurrently. This is possible because policies are independent.
+Implementations MAY support a subset of features (e.g., omit rate limiting) but MUST clearly document unsupported features.
 
-- **Stage order is fixed.** Runtimes must execute stages in the defined order: Keep → Transform (Remove → Redact → Rename → Add).
+## References
 
-- **Most restrictive keep wins.** If multiple policies specify different `keep` values for the same telemetry, apply the most restrictive. `none` beats any percentage, lower percentages beat higher ones.
-
-- **Last write wins.** If multiple policies in the same transform substage target the same field, the result is the last write. Runtimes should process policies in a deterministic order (e.g., alphabetical by ID) so results are reproducible.
-
-### Data Types
-
-This specification covers logs and metrics. The same model applies to both—match on fields, execute actions in stages.
-
-**Logs**
-
-Log policies match against the OTel log data model: resource attributes, severity, body, and log record attributes. All `keep` values and transforms are applicable.
-
-**Metrics**
-
-Metric policies match against resource attributes, metric name, and data point attributes. All `keep` values and transforms are applicable, except:
-
-- `body` does not exist for metrics. Transforms targeting `body` are invalid.
-
-For metrics, `keep` with a percentage samples metric data points. Rate limiting (`N/s`, `N/m`) limits the number of data points per time window.
-
-## Trade-offs and Mitigations
-
-This specification makes deliberate trade-offs in favor of simplicity and scale.
-
-**No user-defined ordering.** You cannot specify that policy A runs before policy B. This is intentional—ordering creates dependencies, and dependencies break the independence that makes policies scale. The trade-off is less flexibility. If you need strict ordering, you need separate processing stages outside the policy system.
-
-**No conditional logic.** Policies don't support if/else or branching. Each policy is a simple predicate and action. Complex conditional logic belongs in your application code, not your telemetry processing. This keeps policies easy to understand and easy to generate.
-
-**No cross-policy references.** A policy cannot reference another policy's output or depend on another policy having run. This limits composition but ensures every policy is self-contained. You can reason about each policy in isolation.
-
-**Most restrictive keep wins.** When multiple policies match the same telemetry, the strictest `keep` value applies. This means a single `keep: none` policy can override others. The alternative—requiring explicit conflict resolution—would add complexity and ordering concerns. The current behavior is predictable: if any matching policy wants to drop telemetry, it's dropped.
-
-**Limited transform types.** The spec defines a small set of transforms: remove, redact, rename, add. It doesn't support arbitrary transformations like regex replacement, field splitting, or computed values. This keeps the execution model simple and fast. Complex transformations belong in application code or a dedicated ETL layer.
-
-These constraints exist because the primary goal is scale—tens of thousands of policies executing efficiently. Every feature that adds complexity makes that goal harder. The spec intentionally stays minimal.
-
-## Prior Art and Alternatives
-
-**Pipeline configurations.** Vector, Fluent Bit, Logstash, and the OTel Collector all use pipeline-based configurations. Data flows through a DAG of components, each transforming the data. This model is flexible but doesn't scale to thousands of rules and requires global reasoning.
-
-**OPA (Open Policy Agent).** OPA provides a general-purpose policy language (Rego) for authorization and admission control. It's powerful but complex—Rego has a learning curve, and policies can have arbitrary logic. This spec is narrower: telemetry processing only, with a minimal set of operations.
-
-**Datadog processing pipelines.** Datadog provides a UI for building log processing rules. Each rule has a matcher and action, similar to policies. The limitation is that rules are vendor-specific and not portable.
-
-**OpenTelemetry Collector processors.** The OTel Collector has processors like `filter`, `attributes`, and `transform` that modify telemetry. These are configured in YAML as part of the pipeline. The spec differs by making each rule independent and portable across runtimes.
-
-This specification draws from all of these but prioritizes independence, portability, and scale over flexibility.
-
-## Open Questions
-
-**Regex syntax.** The spec uses `/pattern/` for regular expressions but doesn't specify the regex dialect. Should this be RE2 (safe, no backtracking), PCRE, or something else? Implementations need to agree for portability.
-
-**Rate limiting scope.** When `keep: 100/s` is specified, what's the scope? Per-policy? Per-matcher? Global across the runtime? This affects how rate limiting behaves in distributed deployments.
-
-**Metric aggregation.** The spec supports dropping and sampling metrics, but not aggregation (e.g., converting histograms to summaries, reducing cardinality by dropping dimensions). Is this a transform type or out of scope?
-
-**Trace support.** This version covers logs and metrics. Traces have different semantics—spans are related, sampling decisions should be consistent across a trace. How should policies apply to traces?
-
-**Negation syntax.** The spec uses `not:field` for negation. Alternatives include a separate `not:` block or a `negate: true` flag on individual matchers. The current approach is concise but may conflict with field names in edge cases.
-
-## Future Possibilities
-
-**Traces.** Extend the spec to support span matching and trace-aware sampling. This requires careful design around trace context and parent/child relationships.
-
-**Richer transforms.** Add transforms like `truncate` (limit string length), `hash` (one-way hash for pseudonymization), or `extract` (parse structured data from strings). Each would need to fit the staged execution model.
-
-**Policy inheritance.** Allow policies to inherit from base policies, reducing duplication. This would need to preserve the self-contained property—the resolved policy should be understandable without chasing references.
-
-**Ecosystem adoption.** Work with OTel Collector, Vector, and other tools to implement the spec natively. Contribute SDKs that make implementation straightforward. The goal is policies as a portable standard, not a single-vendor feature.
+- [OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/)
+- [OpenTelemetry Log Data Model](https://opentelemetry.io/docs/specs/otel/logs/data-model/)
+- [RE2 Regular Expression Syntax](https://github.com/google/re2/wiki/Syntax)
+- [RFC 2119 - Key words for use in RFCs](https://www.rfc-editor.org/rfc/rfc2119)
+- [Policy OTEP](https://github.com/open-telemetry/opentelemetry-specification/pull/4738)

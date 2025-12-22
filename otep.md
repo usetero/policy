@@ -58,7 +58,7 @@ intent-based specification from a user of OpenTelemetry.
 Every policy is defined with the following:
 
 - A `type` denoting the use case for the policy
-- A JSON schema denoting what a valid definitions of the policy entails, 
+- A JSON schema denoting what a valid definitions of the policy entails,
   describing how servers should present the policy to customers.
 - An specification denoting behavior the policy enforces, i.e., for a given
   JSON entry, to which elements the policy applies and which behaviors is
@@ -76,7 +76,8 @@ Policies MUST NOT:
   MUST not depend on another running. This is in keeping with the idempotency
   principle.
 
-Example policy types include: 
+Example policy types include:
+
 - `trace-sampling`: define how traces are sampled
 - `metric-rate`: define sampling period for metrics
 - `log-filter`: define how logs are sampled/filtered
@@ -88,7 +89,7 @@ Example policy types include:
 ## Policy Ecosystem
 
 Policies are designed to be straightforward objects with little to no logic
-tied to them. Policies are also designed to be agnostic to the transport, 
+tied to them. Policies are also designed to be agnostic to the transport,
 implementation, and data type. It is the goal of the ecosystem to support
 policies in various ways. Policies MUST be additive and MUST NOT break existing
 standards. It is therefore our goal to extend the ecosystem by recommending
@@ -199,7 +200,7 @@ This specification makes no requirements on these groups. It is recommended that
 
 ## Internal details
 
-NOTE: We need to include a section here about recording status. 
+NOTE: We need to include a section here about recording status.
 NOTE 2: Each provider should only care about the status of the policies they are responsible for.
 NOTE 3: Each provider is responsible for ensuring that a single policy is not disruptive.
 
@@ -210,7 +211,7 @@ natural that the merge algorithm is also not enforced by the policy. As such,
 whenever a policy is transmitted it should specify how it is expected to be merged, either by
 relying on a standard merge mechanism from the protocol or by setting it up explicitly during transmission,
 
-For JSON, a service can follow either [JSON Patch](https://datatracker.ietf.org/doc/html/rfc6902) or 
+For JSON, a service can follow either [JSON Patch](https://datatracker.ietf.org/doc/html/rfc6902) or
 [JSON Merge Patch](https://datatracker.ietf.org/doc/html/rfc6902) to create policies that can be merged and
 remain idempotent. Below we have the same update for a hypothetical `metric-rate` policy that can be merged following the RFCs
 
@@ -236,20 +237,21 @@ Proto based transmission protocols can rely on [`Merge`](https://pkg.go.dev/goog
 The mechanism for negotiating a protocol will depend on the specific `PolicyProvider` implementation, some options are:
 
 * A `FileProvider` will either use a default merger from the format (like the default proto merge), or accept a parameter that specifies which merger is expected when reading the specific file format (for example, for JSON).
-* A HTTP provider can use different file formats to decide which merger to use, as specified in the RFCs for JSON patch formats.
-* OpAmp providers could add a field specifying the merger as well as the data being transmitted, plus a mechanism for systems to inform each other which mergers are avaliable and how the data is expected to be merged.
+* An HTTP provider can use different file formats to decide which merger to use, as specified in the RFCs for JSON patch formats.
+* OpAmp providers could add a field specifying the merger as well as the data being transmitted, plus a mechanism for systems to inform each other which mergers are available and how the data is expected to be merged.
 
 #### Conflict resolution in case of a merge
 
 Since policies must be idempotent and multiple policies are allowed, it is
 important that no assumptions are made about how specific merging protocol
 works. Therefore, we suggest the following:
+
 * Do not rely on the order of fields, and set explicit rules on how to
   compare fields added in distinct order
 * Do not rely on array operations, since not all merge protocols support
   them
 * Avoid mechanisms that require storing all policies since these lead to
-  unconstrained memory to handle them, i.e., keep only the most recent 
+  unconstrained memory to handle them, i.e., keep only the most recent
   state.
 
 As an example, let's look at a possible per-metric sampling period operation.
@@ -269,16 +271,17 @@ sampling period will be chosen, which makes it not idempotent, since multiple
 agents might receive or process them in different order, leading to distinct
 sampling rate across agents, or through a stack of agents and collectors.
 
-For these cases, we recommend that the policy uses a distinct field between the 
-existing and new value, and runs a **post-merge algorithm** that applies a 
+For these cases, we recommend that the policy uses a distinct field between the
+existing and new value, and runs a **post-merge algorithm** that applies a
 commutative operation that is applied immediately over the data, effectively
 resolving the conflict.
 
 In the example, let's turn the sampling rate into a struct with two fields:
-* a `minimum` that contains the resolved minimum sampling 
+
+* a `minimum` that contains the resolved minimum sampling
   period. Initially, this field is unset. A policy provider **must not** set
   this field.
-* a `recommended`, which is the field set by a policy. A 
+* a `recommended`, which is the field set by a policy. A
   policy provider **should** set this field if it wants to recommend a sampling
   rate.
 
@@ -318,8 +321,8 @@ This guarantees that policies can be applied in any order and yet the end
 result will be the same. It also allow for more complex policies like taking
 into account timestamps and sources, provided the operations can be demonstrated
 to be commutative and applied in any order. For example, we could have a policy
-where a given provider value always overrides another provider if one of 
-the fields is the provider name and the post-merge algorithm takes this 
+where a given provider value always overrides another provider if one of
+the fields is the provider name and the post-merge algorithm takes this
 information into account.
 
 ## Trade-offs and mitigations
@@ -489,7 +492,7 @@ This is not ideal for a few reasons:
 - We don't have a "safe" mechanism to declare what configuration is supported
   or could be sent to a specific component (note: we can design one)
 - The level of control we'd expose from our telemetry systems is *expansive*
-  and possibly dangerous. 
+  and possibly dangerous.
   - We cannot limit the impact of any remote configuration on the working of a
     system. We cannot prevent changes that may take down a process.
   - We cannot limit the execution overhead of configuration or fine-grained
@@ -511,7 +514,7 @@ What are some questions that you know aren't resolved yet by the OTEP? These may
 
 1. [Tero edge](https://github.com/usetero/edge)
     1. a zig implementation of a proxy that applies policies.
-    1. later we will show our policy representation as a sample of this OTEP.
+    2. later we will show our policy representation as a sample of this OTEP.
 
 ## Future possibilities
 
