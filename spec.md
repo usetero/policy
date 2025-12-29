@@ -4,17 +4,27 @@ Status: Draft
 
 ## Abstract
 
-This document specifies the structure and semantics of telemetry policies. A policy is an atomic, portable rule for processing telemetry data. Policies are designed for implementation across the telemetry ecosystem using OpenTelemetry's data model.
+This document specifies the structure and semantics of telemetry policies. A
+policy is an atomic, portable rule for processing telemetry data. Policies are
+designed for implementation across the telemetry ecosystem using OpenTelemetry's
+data model.
 
 ## Overview
 
-A policy declares a single intent: match specific telemetry and apply an action. Policies are independent units that do not reference each other and do not depend on execution order. This independence enables parallel evaluation and scaling to large policy sets without performance degradation.
+A policy declares a single intent: match specific telemetry and apply an action.
+Policies are independent units that do not reference each other and do not
+depend on execution order. This independence enables parallel evaluation and
+scaling to large policy sets without performance degradation.
 
-Policies use the [OpenTelemetry data model](https://opentelemetry.io/docs/specs/otel/overview/) for field references, ensuring portability across any runtime that implements this specification.
+Policies use the
+[OpenTelemetry data model](https://opentelemetry.io/docs/specs/otel/overview/)
+for field references, ensuring portability across any runtime that implements
+this specification.
 
 ## Design Principles
 
-This specification follows the [OpenTelemetry Specification Principles](https://opentelemetry.io/docs/specs/otel/specification-principles/):
+This specification follows the
+[OpenTelemetry Specification Principles](https://opentelemetry.io/docs/specs/otel/specification-principles/):
 
 - **User Driven**: Policies address real-world telemetry processing needs.
 - **General**: The specification defines behavior, not implementation details.
@@ -27,7 +37,8 @@ Additionally, policies adhere to these constraints:
 - **Atomic**: A policy serves one intent with one matcher and one action set.
 - **Self-contained**: A policy MUST NOT reference or depend on other policies.
 - **Fail-open**: Policy evaluation failures MUST NOT cause telemetry loss.
-- **Idempotent**: Applying the same policy multiple times produces the same result.
+- **Idempotent**: Applying the same policy multiple times produces the same
+  result.
 
 ## Policy Structure
 
@@ -35,34 +46,36 @@ Additionally, policies adhere to these constraints:
 
 A policy MUST contain the following fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique identifier for the policy. |
-| `name` | string | Human-readable name. |
+| Field  | Type   | Description                       |
+| ------ | ------ | --------------------------------- |
+| `id`   | string | Unique identifier for the policy. |
+| `name` | string | Human-readable name.              |
 
 ### Optional Fields
 
 A policy MAY contain the following fields:
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `description` | string | empty | Explanation of the policy's purpose. |
-| `enabled` | boolean | `true` | Whether the policy is active. |
-| `created_at_unix_nano` | fixed64 | - | Creation timestamp in Unix epoch nanoseconds. |
-| `modified_at_unix_nano` | fixed64 | - | Last modification timestamp in Unix epoch nanoseconds. |
-| `labels` | KeyValue[] | empty | Metadata labels for routing and organization. |
+| Field                   | Type       | Default | Description                                            |
+| ----------------------- | ---------- | ------- | ------------------------------------------------------ |
+| `description`           | string     | empty   | Explanation of the policy's purpose.                   |
+| `enabled`               | boolean    | `true`  | Whether the policy is active.                          |
+| `created_at_unix_nano`  | fixed64    | -       | Creation timestamp in Unix epoch nanoseconds.          |
+| `modified_at_unix_nano` | fixed64    | -       | Last modification timestamp in Unix epoch nanoseconds. |
+| `labels`                | KeyValue[] | empty   | Metadata labels for routing and organization.          |
 
 ### Target
 
-A policy MUST specify exactly one target. The target defines which telemetry signal the policy applies to and contains the matching and action configuration.
+A policy MUST specify exactly one target. The target defines which telemetry
+signal the policy applies to and contains the matching and action configuration.
 
 Currently defined targets:
 
-| Target | Description |
-|--------|-------------|
-| `log` | Log record processing. See [Log Target](#log-target). |
+| Target   | Description                                             |
+| -------- | ------------------------------------------------------- |
+| `log`    | Log record processing. See [Log Target](#log-target).   |
+| `metric` | Metric processing. See [Metric Target](#metric-target). |
 
-Future versions MAY define additional targets (e.g., `metric`, `trace`).
+Future versions MAY define additional targets (e.g., `trace`).
 
 ## Log Target
 
@@ -78,11 +91,13 @@ LogTarget {
 }
 ```
 
-A log target MUST contain at least one matcher. A log target MUST specify either a `keep` value other than `"all"` or a `transform`, or both.
+A log target MUST contain at least one matcher. A log target MUST specify either
+a `keep` value other than `"all"` or a `transform`, or both.
 
 ### Log Matching
 
-Matchers identify which log records a policy applies to. Multiple matchers are combined with AND logic: all matchers MUST match for the policy to apply.
+Matchers identify which log records a policy applies to. Multiple matchers are
+combined with AND logic: all matchers MUST match for the policy to apply.
 
 #### LogMatcher Structure
 
@@ -98,56 +113,62 @@ LogMatcher {
 
 A matcher MUST specify exactly one field selector:
 
-| Selector | Type | Description |
-|----------|------|-------------|
-| `log_field` | LogField enum | Well-known log record field. |
-| `log_attribute` | string | Log record attribute by key. |
-| `resource_attribute` | string | Resource attribute by key. |
-| `scope_attribute` | string | Instrumentation scope attribute by key. |
+| Selector             | Type          | Description                             |
+| -------------------- | ------------- | --------------------------------------- |
+| `log_field`          | LogField enum | Well-known log record field.            |
+| `log_attribute`      | string        | Log record attribute by key.            |
+| `resource_attribute` | string        | Resource attribute by key.              |
+| `scope_attribute`    | string        | Instrumentation scope attribute by key. |
 
 ##### LogField Enum Values
 
-| Value | Description |
-|-------|-------------|
-| `LOG_FIELD_BODY` | The log message body. |
-| `LOG_FIELD_SEVERITY_TEXT` | Severity as string (e.g., "DEBUG", "INFO", "ERROR"). |
-| `LOG_FIELD_TRACE_ID` | Associated trace identifier. |
-| `LOG_FIELD_SPAN_ID` | Associated span identifier. |
-| `LOG_FIELD_EVENT_NAME` | Event name for event logs. |
-| `LOG_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL. |
-| `LOG_FIELD_SCOPE_SCHEMA_URL` | Scope schema URL. |
+| Value                           | Description                                          |
+| ------------------------------- | ---------------------------------------------------- |
+| `LOG_FIELD_BODY`                | The log message body.                                |
+| `LOG_FIELD_SEVERITY_TEXT`       | Severity as string (e.g., "DEBUG", "INFO", "ERROR"). |
+| `LOG_FIELD_TRACE_ID`            | Associated trace identifier.                         |
+| `LOG_FIELD_SPAN_ID`             | Associated span identifier.                          |
+| `LOG_FIELD_EVENT_NAME`          | Event name for event logs.                           |
+| `LOG_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL.                                 |
+| `LOG_FIELD_SCOPE_SCHEMA_URL`    | Scope schema URL.                                    |
 
 #### Match Types
 
 A matcher MUST specify exactly one match type:
 
-| Type | Value Type | Description |
-|------|------------|-------------|
-| `exact` | string | Field value MUST equal the specified string exactly. |
-| `regex` | string | Field value MUST match the regular expression. |
-| `exists` | boolean | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
+| Type     | Value Type | Description                                                    |
+| -------- | ---------- | -------------------------------------------------------------- |
+| `exact`  | string     | Field value MUST equal the specified string exactly.           |
+| `regex`  | string     | Field value MUST match the regular expression.                 |
+| `exists` | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
 
-Regular expressions MUST use [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation consistency.
+Regular expressions MUST use
+[RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
+consistency.
 
 #### Negation
 
-If `negate` is `true`, the match result is inverted. A matcher that would match does not match, and vice versa.
+If `negate` is `true`, the match result is inverted. A matcher that would match
+does not match, and vice versa.
 
 ### Keep
 
-The `keep` field controls whether matching telemetry survives processing. It unifies dropping, sampling, and rate limiting into a single concept.
+The `keep` field controls whether matching telemetry survives processing. It
+unifies dropping, sampling, and rate limiting into a single concept.
 
-| Value | Description |
-|-------|-------------|
-| `"all"` | Keep all matching telemetry. This is the default. |
-| `"none"` | Drop all matching telemetry. |
-| `"N%"` | Keep N percent of matching telemetry (0-100). |
-| `"N/s"` | Keep at most N records per second. |
-| `"N/m"` | Keep at most N records per minute. |
+| Value    | Description                                       |
+| -------- | ------------------------------------------------- |
+| `"all"`  | Keep all matching telemetry. This is the default. |
+| `"none"` | Drop all matching telemetry.                      |
+| `"N%"`   | Keep N percent of matching telemetry (0-100).     |
+| `"N/s"`  | Keep at most N records per second.                |
+| `"N/m"`  | Keep at most N records per minute.                |
 
-Implementations MUST support `"all"` and `"none"`. Implementations SHOULD support percentage-based sampling. Implementations MAY support rate limiting.
+Implementations MUST support `"all"` and `"none"`. Implementations SHOULD
+support percentage-based sampling. Implementations MAY support rate limiting.
 
-When multiple policies match the same telemetry with different `keep` values, the most restrictive value MUST be applied:
+When multiple policies match the same telemetry with different `keep` values,
+the most restrictive value MUST be applied:
 
 1. `"none"` takes precedence over any other value.
 2. Lower percentages take precedence over higher percentages.
@@ -155,7 +176,8 @@ When multiple policies match the same telemetry with different `keep` values, th
 
 ### Log Transform
 
-The `transform` field specifies modifications to apply to log records that survive the keep stage.
+The `transform` field specifies modifications to apply to log records that
+survive the keep stage.
 
 #### Structure
 
@@ -189,7 +211,8 @@ LogRemove {
 }
 ```
 
-The field selector uses the same options as LogMatcher: `log_field`, `log_attribute`, `resource_attribute`, or `scope_attribute`.
+The field selector uses the same options as LogMatcher: `log_field`,
+`log_attribute`, `resource_attribute`, or `scope_attribute`.
 
 If the specified field does not exist, the operation MUST be a no-op.
 
@@ -220,7 +243,8 @@ LogRename {
 
 If the source field does not exist, the operation MUST be a no-op.
 
-If `upsert` is `false` and the target field already exists, the operation MUST be a no-op. If `upsert` is `true`, the target field MUST be overwritten.
+If `upsert` is `false` and the target field already exists, the operation MUST
+be a no-op. If `upsert` is `true`, the target field MUST be overwritten.
 
 #### LogAdd
 
@@ -234,7 +258,103 @@ LogAdd {
 }
 ```
 
-If `upsert` is `false` and the field already exists, the operation MUST be a no-op. If `upsert` is `true`, the field MUST be overwritten.
+If `upsert` is `false` and the field already exists, the operation MUST be a
+no-op. If `upsert` is `true`, the field MUST be overwritten.
+
+## Metric Target
+
+The `metric` target defines matching criteria and actions for metrics.
+
+### Structure
+
+```
+MetricTarget {
+  match: MetricMatcher[]  // REQUIRED, at least one matcher
+  keep:  boolean          // REQUIRED
+}
+```
+
+A metric target MUST contain at least one matcher and a `keep` value.
+
+### Metric Matching
+
+Matchers identify which metrics a policy applies to. Multiple matchers are
+combined with AND logic: all matchers MUST match for the policy to apply.
+
+#### MetricMatcher Structure
+
+```
+MetricMatcher {
+  field:  <field selector>  // REQUIRED, exactly one
+  match:  <match type>      // REQUIRED, exactly one (except for metric_type)
+  negate: boolean           // OPTIONAL, defaults to false
+}
+```
+
+#### Field Selection
+
+A matcher MUST specify exactly one field selector:
+
+| Selector              | Type             | Description                             |
+| --------------------- | ---------------- | --------------------------------------- |
+| `metric_field`        | MetricField enum | Well-known metric field.                |
+| `datapoint_attribute` | string           | Data point attribute by key.            |
+| `resource_attribute`  | string           | Resource attribute by key.              |
+| `scope_attribute`     | string           | Instrumentation scope attribute by key. |
+| `metric_type`         | MetricType enum  | Metric type (implicit equality match).  |
+
+##### MetricField Enum Values
+
+| Value                              | Description             |
+| ---------------------------------- | ----------------------- |
+| `METRIC_FIELD_NAME`                | The metric name.        |
+| `METRIC_FIELD_DESCRIPTION`         | The metric description. |
+| `METRIC_FIELD_UNIT`                | The metric unit.        |
+| `METRIC_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL.    |
+| `METRIC_FIELD_SCOPE_SCHEMA_URL`    | Scope schema URL.       |
+
+##### MetricType Enum Values
+
+| Value                               | Description                   |
+| ----------------------------------- | ----------------------------- |
+| `METRIC_TYPE_GAUGE`                 | Gauge metric.                 |
+| `METRIC_TYPE_SUM`                   | Sum metric.                   |
+| `METRIC_TYPE_HISTOGRAM`             | Histogram metric.             |
+| `METRIC_TYPE_EXPONENTIAL_HISTOGRAM` | Exponential histogram metric. |
+| `METRIC_TYPE_SUMMARY`               | Summary metric.               |
+
+#### Match Types
+
+A matcher MUST specify exactly one match type (except when using `metric_type`,
+which performs implicit equality):
+
+| Type     | Value Type | Description                                                    |
+| -------- | ---------- | -------------------------------------------------------------- |
+| `exact`  | string     | Field value MUST equal the specified string exactly.           |
+| `regex`  | string     | Field value MUST match the regular expression.                 |
+| `exists` | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
+
+Regular expressions MUST use
+[RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
+consistency.
+
+#### Negation
+
+If `negate` is `true`, the match result is inverted. A matcher that would match
+does not match, and vice versa.
+
+### Keep
+
+The `keep` field is a boolean that controls whether matching metrics survive
+processing:
+
+| Value   | Description                |
+| ------- | -------------------------- |
+| `true`  | Keep all matching metrics. |
+| `false` | Drop all matching metrics. |
+
+When multiple policies match the same metric, if any policy specifies
+`keep: false`, the metric MUST be dropped.
 
 ## Policy Stages
 
@@ -259,37 +379,49 @@ Policies execute in two fixed stages:
 
 ### Stage 1: Keep
 
-All matching policies contribute their `keep` values. The runtime evaluates these values and applies the most restrictive result. If telemetry is dropped or sampled out, processing stops.
+All matching policies contribute their `keep` values. The runtime evaluates
+these values and applies the most restrictive result. If telemetry is dropped or
+sampled out, processing stops.
 
 ### Stage 2: Transform
 
-All matching policies contribute their transform operations. Operations execute in the defined order: remove → redact → rename → add. Within each operation type, if multiple policies target the same field, the result is implementation-defined but MUST be deterministic.
+All matching policies contribute their transform operations. Operations execute
+in the defined order: remove → redact → rename → add. Within each operation
+type, if multiple policies target the same field, the result is
+implementation-defined but MUST be deterministic.
 
-Implementations MUST process policies in a consistent order (e.g., alphabetically by ID) to ensure reproducible results.
+Implementations MUST process policies in a consistent order (e.g.,
+alphabetically by ID) to ensure reproducible results.
 
 ## Runtime Requirements
 
 ### Evaluation
 
-Implementations MAY evaluate policies concurrently. The independence of policies enables parallel matching without coordination.
+Implementations MAY evaluate policies concurrently. The independence of policies
+enables parallel matching without coordination.
 
 ### Error Handling
 
 Implementations MUST be fail-open:
 
-- If a policy fails to parse, it MUST be skipped. Other policies MUST continue to execute.
-- If a policy fails to evaluate (e.g., invalid regex at runtime), the telemetry MUST pass through unmodified by that policy.
+- If a policy fails to parse, it MUST be skipped. Other policies MUST continue
+  to execute.
+- If a policy fails to evaluate (e.g., invalid regex at runtime), the telemetry
+  MUST pass through unmodified by that policy.
 - Policy failures MUST NOT cause telemetry loss.
 
 Implementations SHOULD log policy evaluation errors for debugging.
 
 ### Disabled Policies
 
-Policies with `enabled: false` MUST NOT be evaluated. Implementations MUST treat disabled policies as if they do not exist.
+Policies with `enabled: false` MUST NOT be evaluated. Implementations MUST treat
+disabled policies as if they do not exist.
 
 ## YAML Representation
 
-While the canonical format is Protocol Buffers, policies MAY be represented in YAML for human authoring. The YAML structure MUST map directly to the protobuf schema.
+While the canonical format is Protocol Buffers, policies MAY be represented in
+YAML for human authoring. The YAML structure MUST map directly to the protobuf
+schema.
 
 Example policy in YAML:
 
@@ -329,6 +461,18 @@ log:
         upsert: true
 ```
 
+Example metric policy:
+
+```yaml
+id: drop-debug-metrics
+name: Drop debug metrics
+metric:
+  match:
+    - metric_field: METRIC_FIELD_NAME
+      regex: "^debug\\."
+  keep: false
+```
+
 ## Conformance
 
 An implementation conforms to this specification if it:
@@ -340,7 +484,8 @@ An implementation conforms to this specification if it:
 5. Maintains fail-open behavior for all error conditions.
 6. Respects the `enabled` field.
 
-Implementations MAY support a subset of features (e.g., omit rate limiting) but MUST clearly document unsupported features.
+Implementations MAY support a subset of features (e.g., omit rate limiting) but
+MUST clearly document unsupported features.
 
 ## References
 

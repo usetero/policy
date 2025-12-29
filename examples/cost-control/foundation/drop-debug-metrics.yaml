@@ -1,0 +1,8 @@
+id: drop-debug-metrics
+name: Drop debug metrics
+
+metric:
+  match:
+    - metric_field: name
+      regex: "^debug\\."
+  keep: false
