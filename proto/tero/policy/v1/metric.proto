@@ -33,6 +33,10 @@ enum MetricField {
   // Schema URLs
   METRIC_FIELD_RESOURCE_SCHEMA_URL = 10;
   METRIC_FIELD_SCOPE_SCHEMA_URL = 11;
+
+  // Scope fields (InstrumentationScope)
+  METRIC_FIELD_SCOPE_NAME = 12;
+  METRIC_FIELD_SCOPE_VERSION = 13;
 }
 
 // MetricType identifies the type of metric for matching.
@@ -43,6 +47,14 @@ enum MetricType {
   METRIC_TYPE_HISTOGRAM = 3;
   METRIC_TYPE_EXPONENTIAL_HISTOGRAM = 4;
   METRIC_TYPE_SUMMARY = 5;
+}
+
+// AggregationTemporality defines how a metric aggregator reports aggregated values.
+// Mirrors opentelemetry.proto.metrics.v1.AggregationTemporality.
+enum AggregationTemporality {
+  AGGREGATION_TEMPORALITY_UNSPECIFIED = 0;
+  AGGREGATION_TEMPORALITY_DELTA = 1;
+  AGGREGATION_TEMPORALITY_CUMULATIVE = 2;
 }
 
 // =============================================================================
@@ -77,6 +89,9 @@ message MetricMatcher {
 
     // Metric type matcher
     MetricType metric_type = 5;
+
+    // Aggregation temporality matcher (applies to Sum, Histogram, ExponentialHistogram)
+    AggregationTemporality aggregation_temporality = 6;
   }
 
   // Match type. Exactly one must be set.
