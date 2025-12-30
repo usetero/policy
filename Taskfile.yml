@@ -52,6 +52,11 @@ tasks:
     cmds:
       - ./bin/buf dep update
 
+  ci:setup:
+    desc: "Setup CI dependencies"
+    cmds:
+      - ./bin/buf dep update
+
   clean:
     desc: "Clean generated artifacts"
     aliases: [c]
