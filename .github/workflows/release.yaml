@@ -45,6 +45,8 @@ jobs:
         run: task build
 
       - name: Publish to Buf Registry
-        run: buf push --label ${{ github.event.release.tag_name }}
+        run: |
+          buf push --label ${{ github.event.release.tag_name }}
+          buf push --label main
         env:
           BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
