@@ -1,0 +1,50 @@
+---
+# Publish to Buf Registry Workflow
+#
+# Why this exists:
+# Automates publishing the proto module to buf.build when a GitHub release is created.
+#
+# What it does:
+# - Triggers when a GitHub release is published (via release-please)
+# - Sets up hermit for buf CLI
+# - Publishes to buf.build/tero/policy
+#
+# Requirements:
+# - BUF_TOKEN secret must be set with a buf.build API token
+name: release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - uses: cashapp/activate-hermit@12a728b03ad41eace0f9abaf98a035e7e8ea2318 # v1.1.4
+
+      - name: Setup CI dependencies
+        run: task ci:setup
+
+      - name: Verify buf is available
+        run: buf --version
+
+      - name: Lint
+        run: task lint
+
+      - name: Build
+        run: task build
+
+      - name: Publish to Buf Registry
+        run: buf push --label ${{ github.event.release.tag_name }}
+        env:
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
