@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/usetero/policy/compare/v1.0.0...v1.0.1) (2025-12-30)
+
+
+### Bug Fixes
+
+* release to do both main and with a label ([#20](https://github.com/usetero/policy/issues/20)) ([157a7e2](https://github.com/usetero/policy/commit/157a7e2642a2818c5d6aa27616d1ba600dab14be))
+
 ## 1.0.0 (2025-12-30)
 
 
