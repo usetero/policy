@@ -1,0 +1,12 @@
+id: drop-health-check-spans
+name: Drop health check spans
+description: >
+  Drops spans from health check endpoints to reduce noise.
+  Health checks generate high volume with low diagnostic value.
+
+trace:
+  match:
+    - trace_field: name
+      regex: "^(GET|HEAD) /health"
+  keep:
+    percentage: 0.0

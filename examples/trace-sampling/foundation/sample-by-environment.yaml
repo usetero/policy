@@ -1,0 +1,12 @@
+id: sample-staging-environment
+name: Sample staging environment at 50%
+description: >
+  Reduces trace volume from staging environment.
+  Production traces are unaffected by this policy.
+
+trace:
+  match:
+    - resource_attribute: deployment.environment
+      exact: staging
+  keep:
+    percentage: 50.0

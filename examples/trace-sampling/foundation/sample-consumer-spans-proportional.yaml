@@ -1,0 +1,13 @@
+id: sample-consumer-spans-proportional
+name: Sample consumer spans proportionally at 15%
+description: >
+  Samples message consumer spans using proportional mode.
+  Respects existing sampling decisions from upstream producers.
+  Achieves 15% overall rate relative to incoming probability.
+
+trace:
+  match:
+    - span_kind: CONSUMER
+  keep:
+    percentage: 15.0
+    mode: proportional

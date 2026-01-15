@@ -1,0 +1,12 @@
+id: sample-slow-spans-100-percent
+name: Keep all slow spans
+description: >
+  Retains spans with latency annotations for performance debugging.
+  Matches spans that have been marked as slow by instrumentation.
+
+trace:
+  match:
+    - span_attribute: slow
+      exact: "true"
+  keep:
+    percentage: 100.0

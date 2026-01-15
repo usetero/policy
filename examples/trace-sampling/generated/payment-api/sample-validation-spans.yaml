@@ -1,0 +1,16 @@
+id: payment-api-sample-validation-spans
+name: Sample payment validation spans at 50%
+description: >
+  Reduces validation span volume while maintaining good coverage.
+  Validation happens before every payment but errors are rare.
+
+trace:
+  match:
+    - resource_attribute: service.name
+      exact: payment-api
+    - trace_field: name
+      regex: "^Validate"
+    - span_status: OK
+  keep:
+    percentage: 50.0
+    mode: equalizing

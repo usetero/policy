@@ -1,0 +1,14 @@
+id: payment-api-keep-payment-spans
+name: Keep all payment processing spans
+description: >
+  Retains all payment processing spans for audit and debugging.
+  Payment operations are critical and must be fully observable.
+
+trace:
+  match:
+    - resource_attribute: service.name
+      exact: payment-api
+    - trace_field: name
+      regex: "^(ProcessPayment|AuthorizePayment|CapturePayment|RefundPayment)"
+  keep:
+    percentage: 100.0
