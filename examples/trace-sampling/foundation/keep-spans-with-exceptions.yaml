@@ -1,0 +1,12 @@
+id: keep-spans-with-exceptions
+name: Keep spans with exception events
+description: >
+  Retains all spans that contain exception events.
+  Matches spans where an exception event was recorded.
+
+trace:
+  match:
+    - event_name: exception
+      exists: true
+  keep:
+    percentage: 100.0

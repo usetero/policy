@@ -1,0 +1,14 @@
+id: checkout-api-sample-cart-operations
+name: Sample cart operations at 20%
+description: >
+  Reduces cart operation span volume for checkout-api service.
+  Cart operations are frequent but typically low-priority for debugging.
+
+trace:
+  match:
+    - resource_attribute: service.name
+      exact: checkout-api
+    - trace_field: name
+      regex: "^(AddToCart|RemoveFromCart|UpdateCart)"
+  keep:
+    percentage: 20.0

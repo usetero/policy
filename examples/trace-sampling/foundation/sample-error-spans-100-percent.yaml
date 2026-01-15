@@ -1,0 +1,11 @@
+id: sample-error-spans-100-percent
+name: Keep all error spans
+description: >
+  Ensures all spans with error status are retained.
+  Error spans are too valuable to sample down.
+
+trace:
+  match:
+    - span_status: ERROR
+  keep:
+    percentage: 100.0

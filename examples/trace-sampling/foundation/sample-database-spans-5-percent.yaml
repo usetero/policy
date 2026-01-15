@@ -1,0 +1,14 @@
+id: sample-database-spans-5-percent
+name: Sample database spans at 5%
+description: >
+  Aggressively samples database spans which are typically high volume.
+  Uses equalizing mode to balance sampling across different query types.
+
+trace:
+  match:
+    - span_attribute: db.system
+      exists: true
+  keep:
+    percentage: 5.0
+    mode: equalizing
+    sampling_precision: 6

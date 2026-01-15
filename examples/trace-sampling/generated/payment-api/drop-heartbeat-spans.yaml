@@ -1,0 +1,14 @@
+id: payment-api-drop-heartbeat-spans
+name: Drop payment gateway heartbeat spans
+description: >
+  Drops heartbeat spans to payment gateway connections.
+  These are operational noise with no debugging value.
+
+trace:
+  match:
+    - resource_attribute: service.name
+      exact: payment-api
+    - trace_field: name
+      exact: PaymentGatewayHeartbeat
+  keep:
+    percentage: 0.0

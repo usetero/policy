@@ -1,0 +1,14 @@
+id: checkout-api-keep-order-submission
+name: Keep all order submission spans
+description: >
+  Ensures all order submission spans are retained for checkout-api.
+  Order submissions are critical business events that must be traceable.
+
+trace:
+  match:
+    - resource_attribute: service.name
+      exact: checkout-api
+    - trace_field: name
+      exact: SubmitOrder
+  keep:
+    percentage: 100.0

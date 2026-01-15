@@ -1,0 +1,12 @@
+id: drop-synthetic-monitoring
+name: Drop synthetic monitoring spans
+description: >
+  Drops spans from synthetic monitoring and automated tests.
+  These spans are useful for alerting but not for trace analysis.
+
+trace:
+  match:
+    - span_attribute: synthetic
+      exact: "true"
+  keep:
+    percentage: 0.0

@@ -1,0 +1,12 @@
+id: sample-server-spans-25-percent
+name: Sample server spans at 25%
+description: >
+  Reduces server span volume while maintaining trace continuity.
+  Uses proportional mode to respect existing sampling decisions.
+
+trace:
+  match:
+    - span_kind: SERVER
+  keep:
+    percentage: 25.0
+    mode: proportional

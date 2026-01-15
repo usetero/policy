@@ -1,0 +1,13 @@
+id: sample-internal-spans-fail-open
+name: Sample internal spans with fail-open
+description: >
+  Samples internal spans at 30% with fail-open behavior.
+  When sampling errors occur, spans are accepted rather than rejected.
+  Use fail_closed=false for less critical telemetry.
+
+trace:
+  match:
+    - span_kind: INTERNAL
+  keep:
+    percentage: 30.0
+    fail_closed: false

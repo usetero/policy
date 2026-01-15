@@ -70,12 +70,11 @@ signal the policy applies to and contains the matching and action configuration.
 
 Currently defined targets:
 
-| Target   | Description                                             |
-| -------- | ------------------------------------------------------- |
-| `log`    | Log record processing. See [Log Target](#log-target).   |
-| `metric` | Metric processing. See [Metric Target](#metric-target). |
-
-Future versions MAY define additional targets (e.g., `trace`).
+| Target   | Description                                               |
+| -------- | --------------------------------------------------------- |
+| `log`    | Log record processing. See [Log Target](#log-target).     |
+| `metric` | Metric processing. See [Metric Target](#metric-target).   |
+| `trace`  | Trace/span processing. See [Trace Target](#trace-target). |
 
 ## Log Target
 
@@ -356,6 +355,190 @@ processing:
 When multiple policies match the same metric, if any policy specifies
 `keep: false`, the metric MUST be dropped.
 
+## Trace Target
+
+The `trace` target defines matching criteria and probabilistic sampling actions
+for traces/spans.
+
+### Structure
+
+```
+TraceTarget {
+  match: TraceMatcher[]       // REQUIRED, at least one matcher
+  keep:  TraceSamplingConfig  // REQUIRED
+}
+```
+
+A trace target MUST contain at least one matcher and a `keep` configuration.
+
+### Trace Matching
+
+Matchers identify which spans a policy applies to. Multiple matchers are
+combined with AND logic: all matchers MUST match for the policy to apply.
+
+#### TraceMatcher Structure
+
+```
+TraceMatcher {
+  field:  <field selector>  // REQUIRED, exactly one
+  match:  <match type>      // REQUIRED, exactly one (except for span_kind/span_status)
+  negate: boolean           // OPTIONAL, defaults to false
+}
+```
+
+#### Field Selection
+
+A matcher MUST specify exactly one field selector:
+
+| Selector             | Type                | Description                                      |
+| -------------------- | ------------------- | ------------------------------------------------ |
+| `trace_field`        | TraceField enum     | Well-known span field.                           |
+| `span_attribute`     | string              | Span attribute by key.                           |
+| `resource_attribute` | string              | Resource attribute by key.                       |
+| `scope_attribute`    | string              | Instrumentation scope attribute by key.          |
+| `span_kind`          | SpanKind enum       | Span kind (implicit equality match).             |
+| `span_status`        | SpanStatusCode enum | Span status code (implicit equality match).      |
+| `event_name`         | string              | Event name (matches if span contains the event). |
+| `event_attribute`    | string              | Event attribute key (matches if present).        |
+| `link_trace_id`      | string              | Link trace ID (matches if span has link).        |
+
+##### TraceField Enum Values
+
+| Value                             | Description                    |
+| --------------------------------- | ------------------------------ |
+| `TRACE_FIELD_NAME`                | The span name.                 |
+| `TRACE_FIELD_TRACE_ID`            | The trace identifier.          |
+| `TRACE_FIELD_SPAN_ID`             | The span identifier.           |
+| `TRACE_FIELD_PARENT_SPAN_ID`      | The parent span identifier.    |
+| `TRACE_FIELD_TRACE_STATE`         | The W3C tracestate.            |
+| `TRACE_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL.           |
+| `TRACE_FIELD_SCOPE_SCHEMA_URL`    | Scope schema URL.              |
+| `TRACE_FIELD_SCOPE_NAME`          | Instrumentation scope name.    |
+| `TRACE_FIELD_SCOPE_VERSION`       | Instrumentation scope version. |
+
+##### SpanKind Enum Values
+
+| Value                | Description                              |
+| -------------------- | ---------------------------------------- |
+| `SPAN_KIND_INTERNAL` | Internal operation (default).            |
+| `SPAN_KIND_SERVER`   | Server-side handling of a request.       |
+| `SPAN_KIND_CLIENT`   | Client-side request to a remote service. |
+| `SPAN_KIND_PRODUCER` | Producer of an asynchronous message.     |
+| `SPAN_KIND_CONSUMER` | Consumer of an asynchronous message.     |
+
+##### SpanStatusCode Enum Values
+
+| Value                          | Description                       |
+| ------------------------------ | --------------------------------- |
+| `SPAN_STATUS_CODE_UNSPECIFIED` | Status not set.                   |
+| `SPAN_STATUS_CODE_OK`          | Operation completed successfully. |
+| `SPAN_STATUS_CODE_ERROR`       | Operation contained an error.     |
+
+#### Match Types
+
+A matcher MUST specify exactly one match type (except when using `span_kind` or
+`span_status`, which perform implicit equality):
+
+| Type     | Value Type | Description                                                    |
+| -------- | ---------- | -------------------------------------------------------------- |
+| `exact`  | string     | Field value MUST equal the specified string exactly.           |
+| `regex`  | string     | Field value MUST match the regular expression.                 |
+| `exists` | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
+
+Regular expressions MUST use
+[RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
+consistency.
+
+#### Negation
+
+If `negate` is `true`, the match result is inverted. A matcher that would match
+does not match, and vice versa.
+
+### Keep (Probabilistic Sampling)
+
+The `keep` field configures probabilistic sampling for traces. This follows the
+[OpenTelemetry Probability Sampling specification](https://opentelemetry.io/docs/specs/otel/trace/tracestate-probability-sampling/).
+
+#### TraceSamplingConfig Structure
+
+```
+TraceSamplingConfig {
+  percentage:         float   // REQUIRED, 0-100
+  mode:               string  // OPTIONAL, defaults to "hash_seed"
+  sampling_precision: integer // OPTIONAL, defaults to 4
+  hash_seed:          integer // OPTIONAL, defaults to 0
+  fail_closed:        boolean // OPTIONAL, defaults to true
+}
+```
+
+#### Configuration Fields
+
+| Field                | Type    | Default     | Description                                                         |
+| -------------------- | ------- | ----------- | ------------------------------------------------------------------- |
+| `percentage`         | float   | -           | Sampling percentage (0-100). >=100 keeps all, 0 drops all.          |
+| `mode`               | string  | `hash_seed` | Sampling mode. One of `hash_seed`, `proportional`, or `equalizing`. |
+| `sampling_precision` | integer | 4           | Hex digits for threshold encoding (1-14).                           |
+| `hash_seed`          | integer | 0           | Hash seed for deterministic sampling.                               |
+| `fail_closed`        | boolean | true        | If true, reject items on sampling errors.                           |
+
+#### Sampling Modes
+
+| Mode           | Description                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| `hash_seed`    | Uses hash of trace ID with seed for deterministic sampling. Default mode.                     |
+| `proportional` | Respects existing sampling probability in tracestate. Adjusts to achieve target overall rate. |
+| `equalizing`   | Balances sampling across sources by preferentially sampling higher-rate spans.                |
+
+##### hash_seed Use Cases
+
+The `hash_seed` mode uses an FNV hash of the trace ID combined with the
+configured seed to make deterministic sampling decisions. This mode is useful
+when you need consistent sampling across multiple collectors behind a load
+balancer—all collectors with the same `hash_seed` will make identical decisions
+for the same trace ID. Different tiers can use different seeds to apply
+additional sampling. See the
+[OTel Collector hash_seed documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/probabilisticsamplerprocessor#hash-seed-use-cases)
+for details.
+
+##### proportional Use Cases
+
+The `proportional` mode provides predictable output ratios regardless of
+upstream sampling configuration. If a collector is configured for 25%
+proportional sampling, it will output approximately one span for every four
+received, regardless of how they were sampled upstream. This mode follows
+OpenTelemetry and W3C Trace Context Level 2 specifications. Use this when you
+need reliable throughput reduction or uniform downstream enforcement across
+mixed client configurations. See the
+[OTel Collector proportional documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/probabilisticsamplerprocessor#proportional-use-cases)
+for details.
+
+##### equalizing Use Cases
+
+The `equalizing` mode is designed for deployments with mixed sampling
+configurations across components. For example, if in-house services sample at
+10% but third-party services are unsampled, an equalizing sampler at the
+collector can apply uniform 10% sampling: already-sampled telemetry passes
+through unchanged while unsampled telemetry gets sampled at the configured rate.
+Unlike proportional mode, equalizing considers prior sampling decisions and only
+updates the threshold when beneficial. See the
+[OTel Collector equalizing documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/probabilisticsamplerprocessor#equalizing-use-cases)
+for details.
+
+#### Tracestate Handling
+
+Implementations MUST follow the
+[OpenTelemetry tracestate handling specification](https://opentelemetry.io/docs/specs/otel/trace/tracestate-handling/#sampling-threshold-value-th)
+to enable multi-stage sampling:
+
+- The sampling threshold MUST be encoded in the `th` sub-key of the `ot`
+  tracestate entry.
+- The threshold is a 56-bit value encoded as 1-14 lowercase hexadecimal digits
+  with trailing zeros removed.
+- Sampling decisions are made by comparing a randomness value (R) against the
+  rejection threshold (T): if R >= T, keep the span.
+- Downstream samplers can only increase thresholds (decrease probability), never
+  decrease them.
+
 ## Policy Stages
 
 Policies execute in two fixed stages:
@@ -473,6 +656,32 @@ metric:
   keep: false
 ```
 
+Example trace policy with probabilistic sampling:
+
+```yaml
+id: sample-database-spans
+name: Sample database spans at 5%
+trace:
+  match:
+    - span_attribute: db.system
+      exists: true
+  keep:
+    percentage: 5.0
+    mode: equalizing
+```
+
+Example trace policy keeping all error spans:
+
+```yaml
+id: keep-error-spans
+name: Keep all error spans
+trace:
+  match:
+    - span_status: ERROR
+  keep:
+    percentage: 100.0
+```
+
 ## Conformance
 
 An implementation conforms to this specification if it:
@@ -491,6 +700,9 @@ MUST clearly document unsupported features.
 
 - [OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/)
 - [OpenTelemetry Log Data Model](https://opentelemetry.io/docs/specs/otel/logs/data-model/)
+- [OpenTelemetry Trace API](https://opentelemetry.io/docs/specs/otel/trace/api/)
+- [OpenTelemetry Probability Sampling](https://opentelemetry.io/docs/specs/otel/trace/tracestate-probability-sampling/)
+- [OpenTelemetry Tracestate Handling](https://opentelemetry.io/docs/specs/otel/trace/tracestate-handling/)
 - [RE2 Regular Expression Syntax](https://github.com/google/re2/wiki/Syntax)
 - [RFC 2119 - Key words for use in RFCs](https://www.rfc-editor.org/rfc/rfc2119)
 - [Policy OTEP](https://github.com/open-telemetry/opentelemetry-specification/pull/4738)

@@ -1,0 +1,16 @@
+id: checkout-api-sample-inventory-checks
+name: Sample inventory check spans at 10%
+description: >
+  Reduces inventory check span volume. These are high-frequency
+  internal operations with limited debugging value.
+
+trace:
+  match:
+    - resource_attribute: service.name
+      exact: checkout-api
+    - span_kind: CLIENT
+    - span_attribute: rpc.service
+      exact: InventoryService
+  keep:
+    percentage: 10.0
+    mode: proportional
