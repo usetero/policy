@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/usetero/policy/compare/v1.0.1...v1.1.0) (2026-01-15)
+
+
+### Features
+
+* introduce span policies ([#22](https://github.com/usetero/policy/issues/22)) ([e5572b4](https://github.com/usetero/policy/commit/e5572b4460006d2bb65f36a08db416fedb78a6ab))
+
 ## [1.0.1](https://github.com/usetero/policy/compare/v1.0.0...v1.0.1) (2025-12-30)
 
 
