@@ -6,7 +6,7 @@ description: >
 
 trace:
   match:
-    - span_attribute: slow
+    - span_attribute: ["slow"]
       exact: "true"
   keep:
     percentage: 100.0

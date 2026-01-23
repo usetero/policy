@@ -79,15 +79,15 @@ name: Sample order validated logs
 
 log:
   match:
-    - resource_attribute: service.name
+    - resource_attribute: ["service.name"]
       exact: checkout-api
     - log_field: body
       regex: "order validated"
   keep: 50%
   transform:
     remove:
-      - log_attribute: cart_contents
-      - log_attribute: validation_trace
+      - log_attribute: ["cart_contents"]
+      - log_attribute: ["validation_trace"]
 ```
 
 **user-service/**

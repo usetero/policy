@@ -6,7 +6,7 @@ description: >
 
 trace:
   match:
-    - resource_attribute: deployment.environment
+    - resource_attribute: ["deployment.environment"]
       exact: staging
   keep:
     percentage: 50.0

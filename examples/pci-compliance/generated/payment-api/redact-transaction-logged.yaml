@@ -3,11 +3,11 @@ name: Redact transaction logged events
 
 log:
   match:
-    - resource_attribute: service.name
+    - resource_attribute: ["service.name"]
       exact: payment-api
     - log_field: body
       regex: "transaction logged"
   transform:
     redact:
-      - log_attribute: card_number
-      - log_attribute: account_id
+      - log_attribute: ["card_number"]
+      - log_attribute: ["account_id"]

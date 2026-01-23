@@ -6,7 +6,7 @@ description: >
 
 trace:
   match:
-    - resource_attribute: service.name
+    - resource_attribute: ["service.name"]
       exact: payment-api
     - trace_field: name
       regex: "^(ProcessPayment|AuthorizePayment|CapturePayment|RefundPayment)"

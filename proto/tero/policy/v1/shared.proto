@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package tero.policy.v1;
+
+option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
+
+// =============================================================================
+// Shared Types
+// =============================================================================
+
+// AttributePath specifies how to access an attribute value.
+//
+// The path is represented as an array of string segments. Each segment represents
+// a key to traverse into nested maps.
+//
+// Example usage:
+//
+//   For an attribute structure like:
+//     Attributes: map[string]any{
+//         "http": map[string]any{
+//             "method":      "POST",
+//             "status_code": 200,
+//         },
+//         "user_id": "u123",
+//     }
+//
+//   - To access "user_id": ["user_id"]
+//   - To access http.method: ["http", "method"]
+//
+// In YAML, this can be written as:
+//   log_attribute: ["user_id"]           # flat key
+//   log_attribute: ["http", "method"]    # nested path
+//
+// For convenience, a single string is also accepted and treated as a single-element path:
+//   log_attribute: "user_id"             # equivalent to ["user_id"]
+message AttributePath {
+  // Path segments for attribute traversal.
+  // A single-element array accesses a flat attribute.
+  // Multiple elements traverse nested maps.
+  repeated string segments = 1;
+}

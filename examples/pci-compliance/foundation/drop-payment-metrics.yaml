@@ -3,6 +3,6 @@ name: Drop metrics with cardholder data labels
 
 metric:
   match:
-    - datapoint_attribute: card_number
+    - datapoint_attribute: ["card_number"]
       exists: true
   keep: false
