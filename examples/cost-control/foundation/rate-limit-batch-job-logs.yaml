@@ -1,0 +1,10 @@
+id: rate-limit-batch-job-logs
+name: Rate limit batch job logs to 100/s per job
+
+log:
+  match:
+    - resource_attribute: ["service.name"]
+      exact: batch-processor
+  keep: "100/s"
+  sample_key:
+    log_attribute: ["job_id"]

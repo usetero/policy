@@ -29,6 +29,36 @@ message LogTarget {
 
   // Transform operations to apply
   LogTransform transform = 3;
+
+  // Field to use as the sampling key for consistent sampling.
+  // When set, all logs with the same value for this field get the same
+  // keep/drop decision. Use for lifecycle events (request_id, trace_id, job_id)
+  // to avoid sampling individual log lines independently.
+  //
+  // Only applies when keep is a sampling value (N%, N/s, N/m).
+  // Example: sample_key = log_attribute["request_id"] with keep = "10%" means
+  // 10% of requests are kept, with all logs from each kept request preserved.
+  LogSampleKey sample_key = 4;
+}
+
+// LogSampleKey specifies which field to use as the sampling key for consistent
+// sampling decisions.
+message LogSampleKey {
+  // FIELD SELECTION (subset of LogMatcher fields appropriate for sampling keys)
+  // The field to use as the sampling key. Exactly one must be set.
+  oneof field {
+    // Simple fields (trace_id, span_id, etc.)
+    LogField log_field = 1;
+
+    // Log record attribute by key or path
+    AttributePath log_attribute = 2;
+
+    // Resource attribute by key or path
+    AttributePath resource_attribute = 3;
+
+    // Scope attribute by key or path
+    AttributePath scope_attribute = 4;
+  }
 }
 
 // =============================================================================
