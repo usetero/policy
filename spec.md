@@ -236,6 +236,48 @@ the most restrictive value MUST be applied:
 2. Lower percentages take precedence over higher percentages.
 3. Rate limits are evaluated independently per policy.
 
+#### Consistent Sampling with sample_key
+
+The `sample_key` field enables consistent sampling by specifying a field whose
+value determines the sampling decision. When set, all logs with the same value
+for the specified field receive the same keep/drop decision.
+
+```
+LogSampleKey {
+  // Exactly one must be set:
+  log_field:          LogField       // Simple fields (trace_id, span_id, etc.)
+  log_attribute:      AttributePath  // Log record attribute
+  resource_attribute: AttributePath  // Resource attribute
+  scope_attribute:    AttributePath  // Scope attribute
+}
+```
+
+This prevents "swiss cheese" sampling where related log lines (e.g., lifecycle
+events for a single request) get sampled independently.
+
+**Example:** A Rails request that produces 6 log lines:
+
+```
+Started GET "/products/123"
+Processing by ProductsController#show
+  Product Load (2.3ms) SELECT...
+  Rendered products/show.html.erb
+Completed 200 OK in 45ms
+```
+
+Without `sample_key`, at 10% sampling you get random combinations—some requests
+with 2 logs, some with 4, some missing entirely. With
+`sample_key: {log_attribute: "request_id"}` and `keep: "10%"`, you either get
+all logs for a request or none.
+
+**Implementation:** When `sample_key` is set and `keep` is a sampling value:
+
+1. Extract the value of the specified field from the log
+2. Hash the value deterministically (e.g., `hash(value) % 100 < percentage`)
+3. Apply the same keep/drop decision to all logs with that key value
+
+If `sample_key` is not set, sample each log independently (default behavior).
+
 ### Log Transform
 
 The `transform` field specifies modifications to apply to log records that

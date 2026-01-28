@@ -1,0 +1,10 @@
+id: sample-api-logs-by-request
+name: Sample API logs at 10% by request
+
+log:
+  match:
+    - resource_attribute: ["service.name"]
+      exact: api-gateway
+  keep: "10%"
+  sample_key:
+    log_attribute: ["request_id"]

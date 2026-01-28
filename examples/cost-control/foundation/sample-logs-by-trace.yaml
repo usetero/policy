@@ -1,0 +1,10 @@
+id: sample-logs-by-trace
+name: Sample logs at 5% by trace
+
+log:
+  match:
+    - log_field: LOG_FIELD_TRACE_ID
+      exists: true
+  keep: "5%"
+  sample_key:
+    log_field: LOG_FIELD_TRACE_ID
