@@ -29,11 +29,11 @@ name: Redact CVV codes
 
 log:
   match:
-    - log_attribute: cvv
+    - log_attribute: ["cvv"]
       exists: true
   transform:
     redact:
-      - log_attribute: cvv
+      - log_attribute: ["cvv"]
 ```
 
 That's the entire answer. One file. No grep through pipeline configs. No "I
@@ -55,7 +55,7 @@ name: Drop debug logs from payment services
 
 log:
   match:
-    - resource_attribute: service.name
+    - resource_attribute: ["service.name"]
       regex: "^payment-"
     - log_field: severity_text
       exact: DEBUG
@@ -68,7 +68,7 @@ name: Drop metrics with cardholder data labels
 
 metric:
   match:
-    - datapoint_attribute: card_number
+    - datapoint_attribute: ["card_number"]
       exists: true
   keep: false
 ```
@@ -86,14 +86,14 @@ name: Redact payment processed events
 
 log:
   match:
-    - resource_attribute: service.name
+    - resource_attribute: ["service.name"]
       exact: payment-api
     - log_field: body
       regex: "payment processed"
   transform:
     redact:
-      - log_attribute: card_last_four
-      - log_attribute: billing_address
+      - log_attribute: ["card_last_four"]
+      - log_attribute: ["billing_address"]
 ```
 
 **checkout-api/**

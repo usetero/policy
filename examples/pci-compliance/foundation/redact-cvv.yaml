@@ -3,8 +3,8 @@ name: Redact CVV codes
 
 log:
   match:
-    - log_attribute: cvv
+    - log_attribute: ["cvv"]
       exists: true
   transform:
     redact:
-      - log_attribute: cvv
+      - log_attribute: ["cvv"]

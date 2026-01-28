@@ -6,7 +6,7 @@ description: >
 
 trace:
   match:
-    - span_attribute: db.system
+    - span_attribute: ["db.system"]
       exists: true
   keep:
     percentage: 5.0

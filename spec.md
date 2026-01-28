@@ -112,12 +112,66 @@ LogMatcher {
 
 A matcher MUST specify exactly one field selector:
 
-| Selector             | Type          | Description                             |
-| -------------------- | ------------- | --------------------------------------- |
-| `log_field`          | LogField enum | Well-known log record field.            |
-| `log_attribute`      | string        | Log record attribute by key.            |
-| `resource_attribute` | string        | Resource attribute by key.              |
-| `scope_attribute`    | string        | Instrumentation scope attribute by key. |
+| Selector             | Type          | Description                              |
+| -------------------- | ------------- | ---------------------------------------- |
+| `log_field`          | LogField enum | Well-known log record field.             |
+| `log_attribute`      | AttributePath | Log record attribute by path.            |
+| `resource_attribute` | AttributePath | Resource attribute by path.              |
+| `scope_attribute`    | AttributePath | Instrumentation scope attribute by path. |
+
+##### AttributePath
+
+Attribute selectors use an `AttributePath` to specify which attribute to access.
+The path is an array of string segments, where each segment represents a key to
+traverse into nested maps.
+
+```yaml
+# Flat attribute access (single segment)
+log_attribute: ["user_id"]
+
+# Nested attribute access (multiple segments)
+log_attribute: ["http", "request", "method"]
+```
+
+For example, given an attribute structure:
+
+```
+Attributes: {
+    "http": {
+        "request": {
+            "method": "POST",
+            "url": "/api/users"
+        }
+    },
+    "user_id": "u123"
+}
+```
+
+- `["user_id"]` accesses the flat `user_id` attribute
+- `["http", "request", "method"]` traverses to access `"POST"`
+
+###### Unmarshaling
+
+The proto definition wraps the path in an `AttributePath` message with a `path`
+field. This wrapper is required because proto3 does not allow `repeated` fields
+directly inside a `oneof`. However, for ergonomic policy authoring,
+implementations MUST accept both the canonical proto form and shorthand forms
+when unmarshaling from YAML/JSON:
+
+```yaml
+# Canonical (proto-native) - MUST be supported
+log_attribute:
+  path: ["http", "method"]
+
+# Shorthand array - MUST be supported
+log_attribute: ["http", "method"]
+
+# Shorthand string (single-segment only) - MUST be supported
+log_attribute: "user_id"
+```
+
+When marshaling, implementations SHOULD use the shorthand array form for cleaner
+output.
 
 ##### LogField Enum Values
 
@@ -294,13 +348,15 @@ MetricMatcher {
 
 A matcher MUST specify exactly one field selector:
 
-| Selector              | Type             | Description                             |
-| --------------------- | ---------------- | --------------------------------------- |
-| `metric_field`        | MetricField enum | Well-known metric field.                |
-| `datapoint_attribute` | string           | Data point attribute by key.            |
-| `resource_attribute`  | string           | Resource attribute by key.              |
-| `scope_attribute`     | string           | Instrumentation scope attribute by key. |
-| `metric_type`         | MetricType enum  | Metric type (implicit equality match).  |
+| Selector              | Type             | Description                              |
+| --------------------- | ---------------- | ---------------------------------------- |
+| `metric_field`        | MetricField enum | Well-known metric field.                 |
+| `datapoint_attribute` | AttributePath    | Data point attribute by path.            |
+| `resource_attribute`  | AttributePath    | Resource attribute by path.              |
+| `scope_attribute`     | AttributePath    | Instrumentation scope attribute by path. |
+| `metric_type`         | MetricType enum  | Metric type (implicit equality match).   |
+
+See [AttributePath](#attributepath) for path syntax.
 
 ##### MetricField Enum Values
 
@@ -393,14 +449,16 @@ A matcher MUST specify exactly one field selector:
 | Selector             | Type                | Description                                      |
 | -------------------- | ------------------- | ------------------------------------------------ |
 | `trace_field`        | TraceField enum     | Well-known span field.                           |
-| `span_attribute`     | string              | Span attribute by key.                           |
-| `resource_attribute` | string              | Resource attribute by key.                       |
-| `scope_attribute`    | string              | Instrumentation scope attribute by key.          |
+| `span_attribute`     | AttributePath       | Span attribute by path.                          |
+| `resource_attribute` | AttributePath       | Resource attribute by path.                      |
+| `scope_attribute`    | AttributePath       | Instrumentation scope attribute by path.         |
 | `span_kind`          | SpanKind enum       | Span kind (implicit equality match).             |
 | `span_status`        | SpanStatusCode enum | Span status code (implicit equality match).      |
 | `event_name`         | string              | Event name (matches if span contains the event). |
-| `event_attribute`    | string              | Event attribute key (matches if present).        |
+| `event_attribute`    | AttributePath       | Event attribute path (matches if present).       |
 | `link_trace_id`      | string              | Link trace ID (matches if span has link).        |
+
+See [AttributePath](#attributepath) for path syntax.
 
 ##### TraceField Enum Values
 
@@ -615,7 +673,7 @@ description: Remove debug-level logs from checkout-api to reduce volume
 enabled: true
 log:
   match:
-    - resource_attribute: service.name
+    - resource_attribute: ["service.name"]
       exact: checkout-api
     - log_field: LOG_FIELD_SEVERITY_TEXT
       exact: DEBUG
@@ -629,19 +687,33 @@ id: redact-payment-pii
 name: Redact PII from payment service
 log:
   match:
-    - resource_attribute: service.name
+    - resource_attribute: ["service.name"]
       exact: payment-api
   transform:
     remove:
-      - log_attribute: user.password
+      - log_attribute: ["user.password"]
     redact:
-      - log_attribute: user.email
-      - log_attribute: user.phone
+      - log_attribute: ["user.email"]
+      - log_attribute: ["user.phone"]
         replacement: "[PHONE]"
     add:
-      - log_attribute: sanitized
+      - log_attribute: ["sanitized"]
         value: "true"
         upsert: true
+```
+
+Example with nested attribute access:
+
+```yaml
+id: redact-http-auth-header
+name: Redact HTTP authorization headers
+log:
+  match:
+    - log_attribute: ["http", "request", "headers", "authorization"]
+      exists: true
+  transform:
+    redact:
+      - log_attribute: ["http", "request", "headers", "authorization"]
 ```
 
 Example metric policy:
@@ -663,7 +735,7 @@ id: sample-database-spans
 name: Sample database spans at 5%
 trace:
   match:
-    - span_attribute: db.system
+    - span_attribute: ["db.system"]
       exists: true
   keep:
     percentage: 5.0

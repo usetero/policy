@@ -6,10 +6,10 @@ description: >
 
 trace:
   match:
-    - resource_attribute: service.name
+    - resource_attribute: ["service.name"]
       exact: checkout-api
     - span_kind: CLIENT
-    - span_attribute: rpc.service
+    - span_attribute: ["rpc.service"]
       exact: InventoryService
   keep:
     percentage: 10.0

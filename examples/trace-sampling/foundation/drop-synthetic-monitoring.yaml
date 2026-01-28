@@ -6,7 +6,7 @@ description: >
 
 trace:
   match:
-    - span_attribute: synthetic
+    - span_attribute: ["synthetic"]
       exact: "true"
   keep:
     percentage: 0.0

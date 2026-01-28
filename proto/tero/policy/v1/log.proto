@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package tero.policy.v1;
 
+import "tero/policy/v1/shared.proto";
+
 option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 
 // =============================================================================
@@ -70,14 +72,14 @@ message LogMatcher {
     // Simple fields (body, severity_text, trace_id, span_id, etc.)
     LogField log_field = 1;
 
-    // Log record attribute by key
-    string log_attribute = 2;
+    // Log record attribute by key or path
+    AttributePath log_attribute = 2;
 
-    // Resource attribute by key
-    string resource_attribute = 3;
+    // Resource attribute by key or path
+    AttributePath resource_attribute = 3;
 
-    // Scope attribute by key
-    string scope_attribute = 4;
+    // Scope attribute by key or path
+    AttributePath scope_attribute = 4;
   }
 
   // Match type. Exactly one must be set.
@@ -123,14 +125,14 @@ message LogRemove {
     // Simple fields (body, severity_text, trace_id, span_id, etc.)
     LogField log_field = 1;
 
-    // Log record attribute by key
-    string log_attribute = 2;
+    // Log record attribute by key or path
+    AttributePath log_attribute = 2;
 
-    // Resource attribute by key
-    string resource_attribute = 3;
+    // Resource attribute by key or path
+    AttributePath resource_attribute = 3;
 
-    // Scope attribute by key
-    string scope_attribute = 4;
+    // Scope attribute by key or path
+    AttributePath scope_attribute = 4;
   }
 }
 
@@ -142,14 +144,14 @@ message LogRedact {
     // Simple fields (body, severity_text, trace_id, span_id, etc.)
     LogField log_field = 1;
 
-    // Log record attribute by key
-    string log_attribute = 2;
+    // Log record attribute by key or path
+    AttributePath log_attribute = 2;
 
-    // Resource attribute by key
-    string resource_attribute = 3;
+    // Resource attribute by key or path
+    AttributePath resource_attribute = 3;
 
-    // Scope attribute by key
-    string scope_attribute = 4;
+    // Scope attribute by key or path
+    AttributePath scope_attribute = 4;
   }
 
   // Replacement value (e.g., "[REDACTED]")
@@ -164,14 +166,14 @@ message LogRename {
     // Simple fields (body, severity_text, trace_id, span_id, etc.)
     LogField from_log_field = 1;
 
-    // Log record attribute by key
-    string from_log_attribute = 2;
+    // Log record attribute by key or path
+    AttributePath from_log_attribute = 2;
 
-    // Resource attribute by key
-    string from_resource_attribute = 3;
+    // Resource attribute by key or path
+    AttributePath from_resource_attribute = 3;
 
-    // Scope attribute by key
-    string from_scope_attribute = 4;
+    // Scope attribute by key or path
+    AttributePath from_scope_attribute = 4;
   }
 
   // The new field name
@@ -189,14 +191,14 @@ message LogAdd {
     // Simple fields (body, severity_text, trace_id, span_id, etc.)
     LogField log_field = 1;
 
-    // Log record attribute by key
-    string log_attribute = 2;
+    // Log record attribute by key or path
+    AttributePath log_attribute = 2;
 
-    // Resource attribute by key
-    string resource_attribute = 3;
+    // Resource attribute by key or path
+    AttributePath resource_attribute = 3;
 
-    // Scope attribute by key
-    string scope_attribute = 4;
+    // Scope attribute by key or path
+    AttributePath scope_attribute = 4;
   }
 
   // The value to set
