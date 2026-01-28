@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0](https://github.com/usetero/policy/compare/v1.1.0...v1.2.0) (2026-01-28)
+
+
+### Features
+
+* accept nested accessors for attributes ([#24](https://github.com/usetero/policy/issues/24)) ([d1ac044](https://github.com/usetero/policy/commit/d1ac044f97d7fd5416e1bf8e0d944266715c99b6))
+* new matchers for further optimization ([#25](https://github.com/usetero/policy/issues/25)) ([03530cb](https://github.com/usetero/policy/commit/03530cbc3550529ccb48fde75d462311d635c0bf))
+* sampling key support for logs ([#27](https://github.com/usetero/policy/issues/27)) ([5bbf34f](https://github.com/usetero/policy/commit/5bbf34f680de3e00a57a722ca33f1f77783c9daf))
+
 ## [1.1.0](https://github.com/usetero/policy/compare/v1.0.1...v1.1.0) (2026-01-15)
 
 
