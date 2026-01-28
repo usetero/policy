@@ -120,10 +120,22 @@ message TraceMatcher {
 
     // Field existence check
     bool exists = 12;
+
+    // Literal prefix match
+    string starts_with = 13;
+
+    // Literal suffix match
+    string ends_with = 14;
+
+    // Literal substring match
+    string contains = 15;
   }
 
   // If true, inverts the match result
   bool negate = 20;
+
+  // If true, applies case-insensitive matching to all match types
+  bool case_insensitive = 21;
 }
 
 // =============================================================================
