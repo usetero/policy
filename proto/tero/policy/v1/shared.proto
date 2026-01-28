@@ -27,12 +27,23 @@ option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 //   - To access "user_id": ["user_id"]
 //   - To access http.method: ["http", "method"]
 //
-// In YAML, this can be written as:
-//   log_attribute: ["user_id"]           # flat key
-//   log_attribute: ["http", "method"]    # nested path
+// YAML/JSON Unmarshaling:
 //
-// For convenience, a single string is also accepted and treated as a single-element path:
-//   log_attribute: "user_id"             # equivalent to ["user_id"]
+// Implementations MUST accept both the canonical proto form and shorthand forms
+// for ergonomic policy authoring:
+//
+//   Canonical (proto-native):
+//     log_attribute:
+//       segments: ["http", "method"]
+//
+//   Shorthand array (MUST be supported):
+//     log_attribute: ["http", "method"]
+//
+//   Shorthand string (MUST be supported for single-segment paths):
+//     log_attribute: "user_id"           # equivalent to ["user_id"]
+//
+// When marshaling, implementations SHOULD use the shorthand array form for
+// cleaner output.
 message AttributePath {
   // Path segments for attribute traversal.
   // A single-element array accesses a flat attribute.

@@ -150,8 +150,28 @@ Attributes: {
 - `["user_id"]` accesses the flat `user_id` attribute
 - `["http", "request", "method"]` traverses to access `"POST"`
 
-Implementations SHOULD accept a plain string as shorthand for a single-element
-array (e.g., `"user_id"` is equivalent to `["user_id"]`).
+###### Unmarshaling
+
+The proto definition wraps the path in an `AttributePath` message with a
+`segments` field. This wrapper is required because proto3 does not allow
+`repeated` fields directly inside a `oneof`. However, for ergonomic policy
+authoring, implementations MUST accept both the canonical proto form and
+shorthand forms when unmarshaling from YAML/JSON:
+
+```yaml
+# Canonical (proto-native) - MUST be supported
+log_attribute:
+  segments: ["http", "method"]
+
+# Shorthand array - MUST be supported
+log_attribute: ["http", "method"]
+
+# Shorthand string (single-segment only) - MUST be supported
+log_attribute: "user_id"
+```
+
+When marshaling, implementations SHOULD use the shorthand array form for cleaner
+output.
 
 ##### LogField Enum Values
 
