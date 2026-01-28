@@ -104,3 +104,10 @@ without fear. Each one stands alone.
 
 - **[policy-zig](https://github.com/usetero/policy-zig)** — Zig SDK for
   implementing the policy spec in your own tools.
+
+- **[policy-go](https://github.com/usetero/policy-go)** — Go SDK for
+  implementing the policy spec in your own tools.
+
+- **[otel policyprocessor](https://github.com/usetero/tero-collector-distro/tree/master/processor/policyprocessor)**
+  — OpenTelemetry Collector Policy processor for running policies natively in
+  the collector.
