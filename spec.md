@@ -152,16 +152,16 @@ Attributes: {
 
 ###### Unmarshaling
 
-The proto definition wraps the path in an `AttributePath` message with a
-`segments` field. This wrapper is required because proto3 does not allow
-`repeated` fields directly inside a `oneof`. However, for ergonomic policy
-authoring, implementations MUST accept both the canonical proto form and
-shorthand forms when unmarshaling from YAML/JSON:
+The proto definition wraps the path in an `AttributePath` message with a `path`
+field. This wrapper is required because proto3 does not allow `repeated` fields
+directly inside a `oneof`. However, for ergonomic policy authoring,
+implementations MUST accept both the canonical proto form and shorthand forms
+when unmarshaling from YAML/JSON:
 
 ```yaml
 # Canonical (proto-native) - MUST be supported
 log_attribute:
-  segments: ["http", "method"]
+  path: ["http", "method"]
 
 # Shorthand array - MUST be supported
 log_attribute: ["http", "method"]

@@ -34,7 +34,7 @@ option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 //
 //   Canonical (proto-native):
 //     log_attribute:
-//       segments: ["http", "method"]
+//       path: ["http", "method"]
 //
 //   Shorthand array (MUST be supported):
 //     log_attribute: ["http", "method"]
@@ -48,5 +48,5 @@ message AttributePath {
   // Path segments for attribute traversal.
   // A single-element array accesses a flat attribute.
   // Multiple elements traverse nested maps.
-  repeated string segments = 1;
+  repeated string path = 1;
 }
