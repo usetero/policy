@@ -189,15 +189,24 @@ output.
 
 A matcher MUST specify exactly one match type:
 
-| Type     | Value Type | Description                                                    |
-| -------- | ---------- | -------------------------------------------------------------- |
-| `exact`  | string     | Field value MUST equal the specified string exactly.           |
-| `regex`  | string     | Field value MUST match the regular expression.                 |
-| `exists` | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
+| Type          | Value Type | Description                                                    |
+| ------------- | ---------- | -------------------------------------------------------------- |
+| `exact`       | string     | Field value MUST equal the specified string exactly.           |
+| `regex`       | string     | Field value MUST match the regular expression.                 |
+| `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
+| `starts_with` | string     | Field value MUST begin with the specified literal string.      |
+| `ends_with`   | string     | Field value MUST end with the specified literal string.        |
+| `contains`    | string     | Field value MUST contain the specified literal substring.      |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
 consistency.
+
+#### Case Insensitivity
+
+If `case_insensitive` is `true`, the match is performed without regard to case.
+This applies to all match types including `exact`, `regex`, `starts_with`,
+`ends_with`, and `contains`.
 
 #### Negation
 
@@ -383,15 +392,24 @@ See [AttributePath](#attributepath) for path syntax.
 A matcher MUST specify exactly one match type (except when using `metric_type`,
 which performs implicit equality):
 
-| Type     | Value Type | Description                                                    |
-| -------- | ---------- | -------------------------------------------------------------- |
-| `exact`  | string     | Field value MUST equal the specified string exactly.           |
-| `regex`  | string     | Field value MUST match the regular expression.                 |
-| `exists` | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
+| Type          | Value Type | Description                                                    |
+| ------------- | ---------- | -------------------------------------------------------------- |
+| `exact`       | string     | Field value MUST equal the specified string exactly.           |
+| `regex`       | string     | Field value MUST match the regular expression.                 |
+| `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
+| `starts_with` | string     | Field value MUST begin with the specified literal string.      |
+| `ends_with`   | string     | Field value MUST end with the specified literal string.        |
+| `contains`    | string     | Field value MUST contain the specified literal substring.      |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
 consistency.
+
+#### Case Insensitivity
+
+If `case_insensitive` is `true`, the match is performed without regard to case.
+This applies to all match types including `exact`, `regex`, `starts_with`,
+`ends_with`, and `contains`.
 
 #### Negation
 
@@ -497,15 +515,24 @@ See [AttributePath](#attributepath) for path syntax.
 A matcher MUST specify exactly one match type (except when using `span_kind` or
 `span_status`, which perform implicit equality):
 
-| Type     | Value Type | Description                                                    |
-| -------- | ---------- | -------------------------------------------------------------- |
-| `exact`  | string     | Field value MUST equal the specified string exactly.           |
-| `regex`  | string     | Field value MUST match the regular expression.                 |
-| `exists` | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
+| Type          | Value Type | Description                                                    |
+| ------------- | ---------- | -------------------------------------------------------------- |
+| `exact`       | string     | Field value MUST equal the specified string exactly.           |
+| `regex`       | string     | Field value MUST match the regular expression.                 |
+| `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
+| `starts_with` | string     | Field value MUST begin with the specified literal string.      |
+| `ends_with`   | string     | Field value MUST end with the specified literal string.        |
+| `contains`    | string     | Field value MUST contain the specified literal substring.      |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
 consistency.
+
+#### Case Insensitivity
+
+If `case_insensitive` is `true`, the match is performed without regard to case.
+This applies to all match types including `exact`, `regex`, `starts_with`,
+`ends_with`, and `contains`.
 
 #### Negation
 
