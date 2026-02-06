@@ -70,8 +70,10 @@ SDK, a Collector, or any other component that implements the specification.
 We define a new concept called a `Telemetry Policy`. A Policy is an intent-based
 specification from a user of OpenTelemetry.
 
-- **Typed**: A policy self identifies its "type". Policies of different types
-  cannot be merged, but policies of the same type MUST be merged together.
+- **Typed**: A policy self-identifies its "type" through its target signal. In
+  the proto schema, this is enforced by the `oneof target` field — a policy
+  targets exactly one signal (e.g. log, metric, trace). Policies of different
+  types cannot be merged, but policies of the same type MUST be merged together.
 - **Clearly specified behavior**: A policy type enforces a specific behavior for
   a clear use case, e.g. trace sampling, metric aggregation, attribute
   filtering.
@@ -89,10 +91,10 @@ specification from a user of OpenTelemetry.
 Every policy is defined with the following:
 
 - A `type` denoting the use case for the policy
-- A JSON schema denoting what a valid definitions of the policy entails,
-  describing how servers should present the policy to customers.
+- A schema denoting what a valid definition of the policy entails, describing
+  how servers should present the policy to customers.
 - A specification denoting behavior the policy enforces, i.e., for a given JSON
-  entry, to which elements the policy applies and which behaviors is expected
+  entry, to which elements the policy applies and which behavior is expected
   from an agent or collector implementing the policy.
 
 Policies MUST NOT:
@@ -105,7 +107,7 @@ Policies MUST NOT:
   - Policies MUST be fail-open.
 - Contain logical waterfalls.
   - Each policy's application is distinct from one another and at this moment
-    MUST not depend on another running. This is in keeping with the idempotency
+    MUST NOT depend on another running. This is in keeping with the idempotency
     principle.
 
 Example policy types include:
@@ -113,7 +115,7 @@ Example policy types include:
 - `trace-sampling`: define how traces are sampled
 - `metric-rate`: define sampling period for metrics
 - `log-filter`: define how logs are sampled/filtered
-- `attribute-redaction`: define attributes which need redaction/removal.
+- `attribute-redaction`: define attributes that need redaction/removal.
 - `metric-aggregation`: define how metrics should be aggregated (i.e. views).
 - `exemplar-sampling`: define how exemplars are sampled
 - `attribute-filter`: define data that should be rejected based on attributes
@@ -132,8 +134,8 @@ in their infrastructure. For example, a user may decide to run a multi-stage
 policy architecture where the SDK, daemon collector, and gateway collector work
 in tandem where the SDK and Daemons are given set policies while the gateway is
 remotely managed. Another user may choose to solely remotely manage their SDKs.
-As a result of this scalable architecture, it's recommended the policy providers
-updates are asynchronous. An out of date policy (i.e. one updated in a policy
+As a result of this scalable architecture, it's recommended that policy provider
+updates are asynchronous. An out-of-date policy (i.e. one updated in a policy
 provider but not yet in the applier) should not be lethal to the functionality
 of the system.
 
@@ -257,11 +259,6 @@ See `Future Possibilities` for more.
 
 ## Internal details
 
-NOTE: We need to include a section here about recording status. NOTE 2: Each
-provider should only care about the status of the policies they are responsible
-for. NOTE 3: Each provider is responsible for ensuring that a single policy is
-not disruptive.
-
 ### Typed Schema
 
 Below is a sample for the schema of a policy, defined in the protobuf format. We
@@ -306,7 +303,7 @@ and metadata about its creation. Each policy MUST specify only one target
 configuration to promote specificity for users when creating a policy.
 Throughout the schema, we take advantage of `oneof` to prevent invalid
 configuration (i.e. someone specifying type: trace and then a metric-only
-configuration.)
+configuration).
 
 #### Policy Matchers
 
@@ -414,7 +411,9 @@ recover from drift or missed updates.
 **Report policy status back to the provider.** Transport protocols SHOULD
 provide a mechanism for clients to report per-policy status (match counts,
 errors) back to the provider. This feedback loop enables providers to detect
-misconfigured or ineffective policies.
+misconfigured or ineffective policies. Status SHOULD be scoped to each provider
+— a provider only receives status for the policies it supplies. Each provider is
+responsible for ensuring its policies are not disruptive to the system.
 
 **Resolve duplicate policy IDs by provider priority.** When multiple providers
 supply a policy with the same `id`, the client must decide which one to keep.
@@ -513,7 +512,7 @@ to understand and easy to generate.
 
 **No cross-policy references.** A policy cannot reference another policy's
 output or depend on another policy having run. This limits composition but
-ensures every policy is self-contained allowing a user to run a policy anywhere
+ensures every policy is self-contained, allowing a user to run a policy anywhere
 and verify its correctness. You can reason about each policy in isolation.
 
 These constraints exist because the primary goal is scale—tens of thousands of
@@ -616,13 +615,13 @@ configured in YAML as part of the collector pipeline.
 - Not portable to SDKs or other runtimes without reimplementation.
 - No native support for dynamic updates without configuration reload.
 - Scale is limited by the sequential processing model.
-- No defined grammar for OTTL making it impossible to run other than the
+- No defined grammar for OTTL, making it impossible to run outside the
   collector.
 
 ### Declarative Config + OpAMP as sole control for telemetry
 
-The declarative config + OpAMP could be used to send any config to any component
-in OpenTelemetry. Here, we would leverage OpAMP configuration passing and the
+Declarative config + OpAMP could be used to send any config to any component in
+OpenTelemetry. Here, we would leverage OpAMP configuration passing and the
 open-extension and definitions of Declarative Config to pass the whole behavior
 of an SDK or Collector from an OpAMP "controlling server" down to a component
 and have them dynamically reload behavior.
@@ -718,9 +717,6 @@ be questions that could be answered through further discussion, implementation
 experiments, or anything else that the future may bring.
 
 - Should this specification give recommendations for the server protobufs
-- For regex matching, should this be RE2 (safe, no backtracking), PCRE, or
-  something else? Implementations need to agree for portability.
-  - [jacob] I think we should do RE2, backtracking gets expensive.
 
 ## Prototypes
 

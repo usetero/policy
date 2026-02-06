@@ -12,7 +12,8 @@ option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 
 // MetricTarget defines matching and actions for metrics.
 message MetricTarget {
-  // Matchers to identify which metrics this policy applies to (AND logic)
+  // Matchers to identify which metrics this policy applies to (AND logic).
+  // Implementations MUST reject policies with an empty match list.
   repeated MetricMatcher match = 1;
 
   // Whether to keep matching metrics (true) or drop them (false)
