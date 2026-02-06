@@ -716,8 +716,6 @@ What are some questions that you know aren't resolved yet by the OTEP? These may
 be questions that could be answered through further discussion, implementation
 experiments, or anything else that the future may bring.
 
-- Should this specification give recommendations for the server protobufs
-
 ## Prototypes
 
 1. [Tero edge](https://github.com/usetero/edge)
