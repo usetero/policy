@@ -12,7 +12,8 @@ option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 
 // TraceTarget defines matching and sampling actions for traces/spans.
 message TraceTarget {
-  // Matchers to identify which spans this policy applies to (AND logic)
+  // Matchers to identify which spans this policy applies to (AND logic).
+  // Implementations MUST reject policies with an empty match list.
   repeated TraceMatcher match = 1;
 
   // The keep field controls whether matching spans are sampled.

@@ -12,7 +12,8 @@ option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 
 // LogTarget defines matching and actions for logs.
 message LogTarget {
-  // Matchers to identify which logs this policy applies to (AND logic)
+  // Matchers to identify which logs this policy applies to (AND logic).
+  // Implementations MUST reject policies with an empty match list.
   repeated LogMatcher match = 1;
 
   // The keep field controls whether matching telemetry survives. It unifies
