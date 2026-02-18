@@ -95,6 +95,33 @@ log:
 - `drop-session-heartbeat.yaml` - Constant noise from session keepalives
 - `drop-cache-hit.yaml` - Verbose cache logging
 
+## Match Tracking
+
+When policies overlap, match tracking shows you which policy actually caused the
+drop. Consider a DEBUG health check log from checkout-api:
+
+| Policy                                  | Match? | Outcome |
+| --------------------------------------- | ------ | ------- |
+| `drop-debug-logs` (keep: none)          | yes    | hit     |
+| `drop-health-checks` (keep: none)       | yes    | hit     |
+| `checkout-api-sample-order-validated`    | no     | —       |
+
+Both drop policies match and both want `keep: none`, so both record a hit. The
+sampling policy doesn't match, so it isn't counted.
+
+Now consider an INFO "order validated" log that matches the sampling policy:
+
+| Policy                                  | Match? | Outcome      |
+| --------------------------------------- | ------ | ------------ |
+| `drop-debug-logs`                       | no     | —            |
+| `drop-health-checks`                    | no     | —            |
+| `checkout-api-sample-order-validated`    | yes    | hit or miss* |
+
+\* At `keep: 50%`, the sampling decision determines the outcome. When the record
+is kept, the policy records a hit. When sampled out, it records a hit too — the
+policy's own sampling decision caused the drop. A miss only occurs when a
+_different_, more restrictive policy overrides the outcome.
+
 ## The Result
 
 Eight policies. Each one is obvious—you can read it and understand exactly what
