@@ -727,6 +727,63 @@ Implementations SHOULD log policy evaluation errors for debugging.
 Policies with `enabled: false` MUST NOT be evaluated. Implementations MUST treat
 disabled policies as if they do not exist.
 
+### Match Tracking
+
+Implementations MUST track match hits and misses for each policy. These counters
+are reported via `PolicySyncStatus.match_hits` and
+`PolicySyncStatus.match_misses`.
+
+Counters are only incremented for policies whose matchers fire. If a policy's
+matchers do not match a telemetry record, neither counter is incremented for that
+policy.
+
+A **match hit** is counted when a policy matches a telemetry record and the
+record's final keep outcome is consistent with what the policy intended. A
+**match miss** is counted when a policy matches a telemetry record but a more
+restrictive policy's keep decision overrides the outcome — resulting in the
+record being dropped or sampled out against the matching policy's intent.
+
+More precisely, after all matching policies contribute their `keep` values and
+the most restrictive value is applied:
+
+- If the record is **kept**, all matching policies record a **hit**.
+- If the record is **dropped**, the policy (or policies) whose `keep` value was
+  the most restrictive — and therefore caused the drop — record a **hit**. All
+  other matching policies record a **miss**.
+
+#### Sampling and Rate Limiting
+
+For probabilistic sampling (`keep: "N%"`) and rate limiting (`keep: "N/s"`,
+`keep: "N/m"`), the hit/miss outcome depends on the per-record decision:
+
+- When the sampling or rate limiting decision is **keep**, less restrictive
+  matching policies record a **hit** (their intent was not overridden).
+- When the sampling or rate limiting decision is **drop**, less restrictive
+  matching policies record a **miss** (the record was dropped against their
+  intent). The policy that imposed the sampling or rate limit records a **hit**.
+
+#### Example
+
+Given 3 log records and 2 policies:
+
+- `keep-info`: matches `severity_text = "INFO"` → `keep: all`
+- `drop-health`: matches body contains `"health"` → `keep: none`
+
+| Record                         | `keep-info`  | `drop-health` | Outcome |
+| ------------------------------ | ------------ | ------------- | ------- |
+| `"health check ok"` (INFO)    | miss         | hit           | dropped |
+| `"user action logged"` (INFO) | hit          | _(no match)_  | kept    |
+| `"database error"` (ERROR)    | _(no match)_ | _(no match)_  | kept    |
+
+Result: `keep-info` reports 1 hit / 1 miss. `drop-health` reports 1 hit /
+0 misses.
+
+The first record matches both policies, but `drop-health` (`keep: none`) is more
+restrictive and causes the drop. `keep-info` records a miss because its intent
+(`keep: all`) was overridden. `drop-health` records a hit because its decision
+was applied. The third record matches neither policy, so neither counter is
+incremented for either policy.
+
 ## YAML Representation
 
 While the canonical format is Protocol Buffers, policies MAY be represented in
@@ -833,6 +890,7 @@ An implementation conforms to this specification if it:
 4. Executes transform operations in the specified order.
 5. Maintains fail-open behavior for all error conditions.
 6. Respects the `enabled` field.
+7. Tracks match hits and misses according to the match tracking semantics.
 
 Implementations MAY support a subset of features (e.g., omit rate limiting) but
 MUST clearly document unsupported features.
