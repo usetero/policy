@@ -734,8 +734,8 @@ are reported via `PolicySyncStatus.match_hits` and
 `PolicySyncStatus.match_misses`.
 
 Counters are only incremented for policies whose matchers fire. If a policy's
-matchers do not match a telemetry record, neither counter is incremented for that
-policy.
+matchers do not match a telemetry record, neither counter is incremented for
+that policy.
 
 A **match hit** is counted when a policy matches a telemetry record and the
 record's final keep outcome is consistent with what the policy intended. A
@@ -769,14 +769,14 @@ Given 3 log records and 2 policies:
 - `keep-info`: matches `severity_text = "INFO"` → `keep: all`
 - `drop-health`: matches body contains `"health"` → `keep: none`
 
-| Record                         | `keep-info`  | `drop-health` | Outcome |
-| ------------------------------ | ------------ | ------------- | ------- |
+| Record                        | `keep-info`  | `drop-health` | Outcome |
+| ----------------------------- | ------------ | ------------- | ------- |
 | `"health check ok"` (INFO)    | miss         | hit           | dropped |
 | `"user action logged"` (INFO) | hit          | _(no match)_  | kept    |
 | `"database error"` (ERROR)    | _(no match)_ | _(no match)_  | kept    |
 
-Result: `keep-info` reports 1 hit / 1 miss. `drop-health` reports 1 hit /
-0 misses.
+Result: `keep-info` reports 1 hit / 1 miss. `drop-health` reports 1 hit / 0
+misses.
 
 The first record matches both policies, but `drop-health` (`keep: none`) is more
 restrictive and causes the drop. `keep-info` records a miss because its intent
