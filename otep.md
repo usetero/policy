@@ -681,7 +681,7 @@ responsible for ensuring its policies are not disruptive to the system.
 
 **Resolve duplicate policy IDs by provider priority.** When multiple providers
 supply a policy with the same `id`, the client must decide which one to keep.
-Implementations SHOULD assign each provider a priority — for example, OPAMP (1),
+Implementations SHOULD assign each provider a priority — for example, OpAMP (1),
 HTTP (2), FILE (3), CUSTOM (user-defined) — where a lower number is higher
 priority. When two policies share the same `id`, the policy from the
 higher-priority provider wins and the other is dropped. Where a policy from a
@@ -897,7 +897,7 @@ configured in YAML as part of the collector pipeline.
 
 - Rules are embedded in pipeline configuration, not standalone.
 - Adding rules requires understanding the full pipeline context.
-- Not portable to SDKs or other runtimes without reimplementation.
+- Not portable to SDKs or other runtimes without another implementation.
 - No native support for dynamic updates without configuration reload.
 - Scale is limited by the sequential processing model.
 - No defined grammar for OTTL, making it impossible to run outside the
