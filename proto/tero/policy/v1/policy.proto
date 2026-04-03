@@ -7,6 +7,7 @@ import "opentelemetry/proto/common/v1/common.proto";
 import "tero/policy/v1/log.proto";
 import "tero/policy/v1/metric.proto";
 import "tero/policy/v1/trace.proto";
+import "tero/policy/v1/extension.proto";
 
 option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 
@@ -49,6 +50,9 @@ message Policy {
     MetricTarget metric = 11;
     TraceTarget trace = 12;
   }
+
+  // Extension for this policy
+  repeated Extension extensions = 20;
 }
 
 // =============================================================================
@@ -69,6 +73,17 @@ enum PolicyStage {
 // =============================================================================
 
 // ClientMetadata contains information about the client requesting policies.
+// ExtensionCapability declares support for a specific extension type.
+// Extensions MUST be backwards compatible within a major version.
+// Providers use this to avoid sending extensions the client cannot handle.
+message ExtensionCapability {
+  // Extension type identifier using reverse FQDN notation (e.g., "com.usetero/s3-dump").
+  string type = 1;
+
+  // Minimum supported version (semver, inclusive).
+  string min_version = 2;
+}
+
 message ClientMetadata {
   // Policy stages this client supports
   repeated PolicyStage supported_policy_stages = 1;
@@ -83,6 +98,10 @@ message ClientMetadata {
   // * service.namespace
   // * service.version
   repeated opentelemetry.proto.common.v1.KeyValue resource_attributes = 3;
+
+  // Extension types and versions this client supports.
+  // Providers SHOULD only include extensions the client can handle.
+  repeated ExtensionCapability supported_extensions = 4;
 }
 
 // TransformStageStatus reports hits and misses for a single transform stage.

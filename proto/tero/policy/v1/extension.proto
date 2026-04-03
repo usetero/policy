@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package tero.policy.v1;
+
+option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
+
+// =============================================================================
+// Extension
+// =============================================================================
+
+// Extension allows implementations to define custom policy behavior beyond the
+// core specification. Extensions are opaque to the policy engine — the engine
+// matches telemetry using the standard target (log/metric/trace), then passes
+// matched records and the extension configuration to a registered handler.
+//
+// Implementations MUST declare which extension types they support. An extension
+// with an unrecognized type MUST be skipped (fail-open).
+message Extension {
+  // Type identifier using reverse FQDN notation (e.g., "com.usetero/s3-dump").
+  // Implementations use this to route to the correct handler.
+  string type = 1;
+
+  // Version of the extension schema (semver, e.g., "1.0.0").
+  string version = 2;
+
+  // Opaque configuration payload. The format is defined by the extension type
+  // and deserialized by the registered handler.
+  bytes config = 3;
+}
