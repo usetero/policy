@@ -24,8 +24,13 @@ message LogTarget {
   //   "all"  - Keep everything (default, can be omitted)
   //   "none" - Drop everything
   //   "N%"   - Keep N percent (0-100), e.g. "50%"
-  //   "N/s"  - Keep at most N per second, e.g. "100/s"
-  //   "N/m"  - Keep at most N per minute, e.g. "1000/m"
+  //   "N/s"  - Keep at most N per second (shorthand for "N/1s"), e.g. "100/s"
+  //   "N/m"  - Keep at most N per minute (shorthand for "N/1m"), e.g. "1000/m"
+  //   "N/Ds" - Keep at most N per D-second window, e.g. "1/5s"
+  //   "N/Dm" - Keep at most N per D-minute window, e.g. "1/5m"
+  //
+  // For rate limiting, both N and D must be positive integers. Fractional
+  // values are invalid and should be rejected by implementations.
   string keep = 2;
 
   // Transform operations to apply
@@ -36,7 +41,7 @@ message LogTarget {
   // keep/drop decision. Use for lifecycle events (request_id, trace_id, job_id)
   // to avoid sampling individual log lines independently.
   //
-  // Only applies when keep is a sampling value (N%, N/s, N/m).
+  // Only applies when keep is a sampling value (N%, N/s, N/m, N/Ds, N/Dm).
   // Example: sample_key = log_attribute["request_id"] with keep = "10%" means
   // 10% of requests are kept, with all logs from each kept request preserved.
   LogSampleKey sample_key = 4;

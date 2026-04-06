@@ -42,6 +42,8 @@ reasoning. You can generate atomic policies.
 - `drop-debug-logs.yaml` - Drop DEBUG and TRACE severity logs
 - `drop-health-checks.yaml` - Drop health check request logs
 - `drop-debug-metrics.yaml` - Drop metrics with debug prefix
+- `rate-limit-batch-job-logs.yaml` - Cap noisy batch logs to 100/s per job
+- `rate-limit-error-logs-1-per-5m.yaml` - Allow one repeated error log every 5 minutes per request
 
 ```yaml
 id: drop-debug-logs
@@ -63,6 +65,19 @@ metric:
     - metric_field: name
       regex: "^debug\\."
   keep: false
+```
+
+```yaml
+id: rate-limit-error-logs-1-per-5m
+name: Rate limit repeated error logs to 1 per 5 minutes per request
+
+log:
+  match:
+    - log_field: severity_text
+      exact: ERROR
+  keep: "1/5m"
+  sample_key:
+    log_attribute: ["request_id"]
 ```
 
 ### Generated (per log event)
