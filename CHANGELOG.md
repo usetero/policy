@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/usetero/policy/compare/v1.2.0...v1.3.0) (2026-04-06)
+
+
+### Features
+
+* add spec for policy hit/miss ([#30](https://github.com/usetero/policy/issues/30)) ([7aadc23](https://github.com/usetero/policy/commit/7aadc23fad48790419603e9fc3a939f295757a41))
+* introduce duration for rate limiting ([#40](https://github.com/usetero/policy/issues/40)) ([8bfa77a](https://github.com/usetero/policy/commit/8bfa77a354149894631192b302b8b3a47cd88f79))
+
+
+### Bug Fixes
+
+* make comment more clear ([#32](https://github.com/usetero/policy/issues/32)) ([658ece6](https://github.com/usetero/policy/commit/658ece6d7882b1be58e8045cabe9d73900455721))
+
 ## [1.2.0](https://github.com/usetero/policy/compare/v1.1.0...v1.2.0) (2026-01-28)
 
 
