@@ -742,8 +742,8 @@ are reported via `PolicySyncStatus.match_hits` and
 `PolicySyncStatus.match_misses`.
 
 Counters are only incremented for policies whose matchers fire. If a policy's
-matchers do not match a telemetry record, neither counter is incremented for that
-policy.
+matchers do not match a telemetry record, neither counter is incremented for
+that policy.
 
 A **match hit** is counted when a policy matches a telemetry record and the
 record's final keep outcome is consistent with what the policy intended. A
@@ -778,14 +778,14 @@ Given 3 log records and 2 policies:
 - `keep-info`: matches `severity_text = "INFO"` → `keep: all`
 - `drop-health`: matches body contains `"health"` → `keep: none`
 
-| Record                         | `keep-info`  | `drop-health` | Outcome |
-| ------------------------------ | ------------ | ------------- | ------- |
+| Record                        | `keep-info`  | `drop-health` | Outcome |
+| ----------------------------- | ------------ | ------------- | ------- |
 | `"health check ok"` (INFO)    | miss         | hit           | dropped |
 | `"user action logged"` (INFO) | hit          | _(no match)_  | kept    |
 | `"database error"` (ERROR)    | _(no match)_ | _(no match)_  | kept    |
 
-Result: `keep-info` reports 1 hit / 1 miss. `drop-health` reports 1 hit /
-0 misses.
+Result: `keep-info` reports 1 hit / 1 miss. `drop-health` reports 1 hit / 0
+misses.
 
 The first record matches both policies, but `drop-health` (`keep: none`) is more
 restrictive and causes the drop. `keep-info` records a miss because its intent
@@ -887,6 +887,69 @@ trace:
     - span_status: ERROR
   keep:
     percentage: 100.0
+```
+
+## Extensions
+
+This specification allows optional policy extensions for implementation-specific
+behavior.
+
+Extensions are defined at the policy root as an `extensions` array:
+
+```json
+"extensions": [
+  {
+    "type": "com.usetero/s3-dump",
+    "version": "1.0.0",
+    "config": { "...": "..." }
+  }
+]
+```
+
+Extension rules:
+
+1. `extensions` is OPTIONAL.
+2. Each extension object MUST include:
+   - `type` (string): globally namespaced extension identifier (example:
+     `com.usetero/s3-dump`)
+   - `version` (string): extension schema version
+   - `config` (object): extension-specific configuration payload
+3. Implementations MUST explicitly define which extension `type`/`version`
+   pairs they support.
+4. If a policy includes an unsupported extension required for policy behavior,
+   implementations SHOULD reject policy load with a clear error.
+5. Extension configuration MUST NOT redefine core policy semantics (`match`,
+   `keep`, `transform`, etc.); it augments behavior after core policy
+   evaluation.
+6. Multiple extensions MAY be present in a single policy.
+7. Extension behavior SHOULD execute off the hot path and SHOULD use
+   non-blocking operations so core telemetry processing is not delayed.
+
+Example:
+
+```yaml
+id: dump-s3
+name: Dump waste to S3
+
+log:
+  match:
+    - log_field: body
+      regex: "[error|failed].*$"
+    - resource_attribute: ["service.name"]
+      regex: checkout-api
+  keep: ".01%"
+
+extensions:
+  - type: com.usetero/s3-dump
+    version: 1.0.0
+    config:
+      destination:
+        kind: s3
+        config:
+          region: eu-central-1
+          s3_bucket: databucket
+          s3_prefix: metric
+          s3_partition_format: "%Y/%m/%d/%H/%M"
 ```
 
 ## Conformance

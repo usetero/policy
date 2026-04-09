@@ -1,0 +1,28 @@
+{
+  "id": "dump-s3",
+  "name": "dump waste to S3",
+  "log": {
+    "match": [
+      { "log_field": "body", "regex": "[error|failed].*$" },
+      { "resource_attribute": ["service.name"], "regex": "checkout-api" }
+    ],
+    "keep": ".01%"
+  },
+  "extensions": [
+    {
+      "type": "com.usetero/s3-dump",
+      "version": "1.0.0",
+      "config": {
+        "destination": {
+          "kind": "s3",
+          "config": {
+            "region": "eu-central-1",
+            "s3_bucket": "databucket",
+            "s3_prefix": "metric",
+            "s3_partition_format": "%Y/%m/%d/%H/%M"
+          }
+        }
+      }
+    }
+  ]
+}

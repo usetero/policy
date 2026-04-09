@@ -47,8 +47,11 @@ broad categories, losing signal with the noise.
 Existing remote-control capabilities in OpenTelemetry are not guaranteed to be
 usable. The Jaeger Remote Sampler works with OpenTelemetry SDKs and the
 Collector's Jaeger remote sampler extension. However, file-based configuration
-does not require dynamic reloading. A solution combining OpAMP with file-based
-configuration cannot provide the same dynamic behavior.
+does not require dynamic reloading. Neither OpAMP nor file-based configuration
+mandate that a recipient apply changes dynamically — an implementation can
+conform to both specifications without supporting dynamic adaptation. Without a
+component that explicitly requires dynamic behavior, there is no guarantee that
+remote configuration changes take effect without a full restart.
 
 The OpenTelemetry Collector allows custom configuration file formats. A
 controlling server cannot operate with an arbitrary Collector distribution
@@ -93,9 +96,10 @@ Every policy is defined with the following:
 - A `type` denoting the use case for the policy
 - A schema denoting what a valid definition of the policy entails, describing
   how servers should present the policy to customers.
-- A specification denoting behavior the policy enforces, i.e., for a given JSON
-  entry, to which elements the policy applies and which behavior is expected
-  from an agent or collector implementing the policy.
+- A specification denoting behavior the policy enforces
+  - A specification makes clear the protobuf structure
+  - The behavior that is expected for an implementation
+  - A set of examples and testcases to verify the behavior
 
 Policies MUST NOT:
 
@@ -119,6 +123,76 @@ Example policy types include:
 - `metric-aggregation`: define how metrics should be aggregated (i.e. views).
 - `exemplar-sampling`: define how exemplars are sampled
 - `attribute-filter`: define data that should be rejected based on attributes
+
+<details>
+<summary>Example Policies</summary>
+
+**Cost Control — Drop debug logs**
+
+```json
+{
+  "id": "drop-debug-logs",
+  "name": "Drop debug and trace logs",
+  "log": {
+    "match": [
+      {
+        "log_field": "severity_text",
+        "regex": "^(DEBUG|TRACE)$"
+      }
+    ],
+    "keep": "none"
+  }
+}
+```
+
+**PCI Compliance — Redact credit card numbers**
+
+```json
+{
+  "id": "redact-ccs",
+  "name": "Redact credit card numbers",
+  "log": {
+    "match": [
+      {
+        "log_attribute": ["ccn"],
+        "exists": true
+      }
+    ],
+    "transform": {
+      "redact": [
+        {
+          "log_attribute": ["ccn"]
+        }
+      ]
+    }
+  }
+}
+```
+
+**Trace Sampling — Sample database spans at 5%**
+
+```json
+{
+  "id": "sample-database-spans-5-percent",
+  "name": "Sample database spans at 5%",
+  "description": "Aggressively samples database spans which are typically high volume. Uses equalizing mode to balance sampling across different query types.",
+  "trace": {
+    "match": [
+      {
+        "span_attribute": ["db.system"],
+        "exists": true
+      }
+    ],
+    "keep": {
+      "percentage": 5.0,
+      "mode": "equalizing",
+      "sampling_precision": 6
+    }
+  }
+}
+```
+
+</details>
 
 ## Policy Ecosystem
 
@@ -263,7 +337,8 @@ See `Future Possibilities` for more.
 
 Below is a sample for the schema of a policy, defined in the protobuf format. We
 make an effort to adhere to OpenTelemetry Semantic Conventions and previous
-specifications.
+specifications. Note: these proto definitions are subject to changes after this
+OTEP is accepted.
 
 ```proto
 message Policy {
@@ -298,9 +373,157 @@ message Policy {
 }
 ```
 
-Every policy MUST have an id and name. Each policy MAY specify associated labels
+Every policy MUST have an ID and name. Each policy MAY specify associated labels
 and metadata about its creation. Each policy MUST specify only one target
 configuration to promote specificity for users when creating a policy.
+
+<details>
+<summary>Target Proto Definitions</summary>
+
+**LogTarget**
+
+```proto
+message LogTarget {
+  // At least one matcher is required
+  repeated LogMatcher match = 1;
+
+  // Keep behavior: "all" (default), "none", or a sampling percentage
+  string keep = 2;
+
+  // Optional transformations applied after keep
+  LogTransform transform = 3;
+}
+
+message LogTransform {
+  repeated LogRemove remove = 1;
+  repeated LogRedact redact = 2;
+  repeated LogRename rename = 3;
+  repeated LogAdd add = 4;
+}
+
+message LogRemove {
+  oneof field {
+    LogField log_field = 1;
+    AttributePath log_attribute = 2;
+    AttributePath resource_attribute = 3;
+    AttributePath scope_attribute = 4;
+  }
+}
+
+message LogRedact {
+  oneof field {
+    LogField log_field = 1;
+    AttributePath log_attribute = 2;
+    AttributePath resource_attribute = 3;
+    AttributePath scope_attribute = 4;
+  }
+  string replacement = 10; // defaults to "[REDACTED]"
+}
+
+message LogRename {
+  oneof from {
+    LogField log_field = 1;
+    AttributePath log_attribute = 2;
+    AttributePath resource_attribute = 3;
+    AttributePath scope_attribute = 4;
+  }
+  string to = 10;
+  bool upsert = 11;
+}
+
+message LogAdd {
+  oneof field {
+    LogField log_field = 1;
+    AttributePath log_attribute = 2;
+    AttributePath resource_attribute = 3;
+    AttributePath scope_attribute = 4;
+  }
+  string value = 10;
+  bool upsert = 11;
+}
+```
+
+**MetricTarget**
+
+```proto
+message MetricTarget {
+  // At least one matcher is required
+  repeated MetricMatcher match = 1;
+
+  // Whether to keep matching metrics
+  bool keep = 2;
+}
+
+message MetricMatcher {
+  oneof field {
+    MetricField metric_field = 1;
+    AttributePath datapoint_attribute = 2;
+    AttributePath resource_attribute = 3;
+    AttributePath scope_attribute = 4;
+    MetricType metric_type = 5;
+  }
+
+  oneof match {
+    string exact = 10;
+    string regex = 11;
+    bool exists = 12;
+    string starts_with = 13;
+    string ends_with = 14;
+    string contains = 15;
+  }
+
+  bool negate = 20;
+  bool case_insensitive = 21;
+}
+```
+
+**TraceTarget**
+
+```proto
+message TraceTarget {
+  // At least one matcher is required
+  repeated TraceMatcher match = 1;
+
+  // Probabilistic sampling configuration
+  TraceSamplingConfig keep = 2;
+}
+
+message TraceMatcher {
+  oneof field {
+    TraceField trace_field = 1;
+    AttributePath span_attribute = 2;
+    AttributePath resource_attribute = 3;
+    AttributePath scope_attribute = 4;
+    SpanKind span_kind = 5;
+    SpanStatusCode span_status = 6;
+    string event_name = 7;
+    AttributePath event_attribute = 8;
+    string link_trace_id = 9;
+  }
+
+  oneof match {
+    string exact = 10;
+    string regex = 11;
+    bool exists = 12;
+    string starts_with = 13;
+    string ends_with = 14;
+    string contains = 15;
+  }
+
+  bool negate = 20;
+  bool case_insensitive = 21;
+}
+
+message TraceSamplingConfig {
+  float percentage = 1;          // 0-100
+  string mode = 2;               // "hash_seed", "proportional", or "equalizing"
+  int32 sampling_precision = 3;  // hex digits for threshold encoding (1-14)
+  int32 hash_seed = 4;           // hash seed for deterministic sampling
+  bool fail_closed = 5;          // reject items on sampling errors
+}
+```
+
+</details>
 Throughout the schema, we take advantage of `oneof` to prevent invalid
 configuration (i.e. someone specifying type: trace and then a metric-only
 configuration).
@@ -352,11 +575,52 @@ message LogMatcher {
 
 ### Policy Design
 
-The configuration for the actions for policies will be determined after this
-OTEP is accepted and is currently being developed. Each policy MUST specify its
-runtime requirements. Policy actions MUST be run in designated stages. When
-designing a new policy, a policy SHOULD begin with a filter to select the
-targeted data.
+Policies are not a general-purpose language that implementations interpret
+dynamically. Each policy stage is a concrete, versioned capability that
+implementations must explicitly support. This means new stages require
+implementation updates — an implementation cannot execute a stage it does not
+understand.
+
+#### Current Stages
+
+The specification currently defines two stages, executed in fixed order:
+
+1. **Keep** — Determines whether telemetry is retained, sampled, or dropped. All
+   matching policies contribute their `keep` values and the runtime applies the
+   most restrictive result. If telemetry is dropped or sampled out, processing
+   stops. Keep is supported for all signal types (logs, metrics, traces). Trace
+   keep supports probabilistic sampling with configurable modes (hash_seed,
+   proportional, equalizing) and W3C tracestate propagation.
+
+2. **Transform** — Modifies telemetry that survives the keep stage. Operations
+   execute in a fixed order: remove → redact → rename → add. Currently
+   transforms are defined for logs only. Within each operation type, if multiple
+   policies target the same field, the result is implementation-defined but MUST
+   be deterministic.
+
+#### Adding New Stages
+
+New policy stages (e.g., metric renaming, metric aggregation, span rollups) will
+follow the same process as the current stages: defined in the specification,
+validated through the conformance suite, and implemented across language
+libraries. Because policies are not a general-purpose language, each new stage
+requires:
+
+- A specification update defining the stage's schema, behavior, and merging
+  semantics.
+- Conformance tests covering the new stage's behavior.
+- Implementation updates in each language library.
+
+Implementations MAY support a subset of stages but MUST clearly document which
+stages are unsupported. An implementation that encounters a policy with an
+unsupported stage MUST follow fail-open behavior — the policy is skipped, not
+the telemetry.
+
+This approach trades the flexibility of a general-purpose language for
+predictability. Every stage has well-defined semantics, every implementation
+agrees on behavior, and the conformance suite guarantees consistency. A new
+stage ships when the specification, tests, and at least one implementation are
+ready.
 
 ### Runtime Requirements
 
@@ -371,8 +635,8 @@ Implementations MUST be fail-open:
 
 - If a policy fails to parse, it MUST be skipped. Other policies MUST continue
   to execute.
-- If a policy fails to evaluate (e.g., invalid regex at runtime), the telemetry
-  MUST pass through unmodified by that policy.
+- If a policy fails to evaluate (e.g., invalid regular expression at runtime),
+  the telemetry MUST pass through unmodified by that policy.
 - Policy failures MUST NOT cause telemetry loss.
 
 Implementations SHOULD log policy evaluation errors for debugging.
@@ -416,10 +680,10 @@ misconfigured or ineffective policies. Status SHOULD be scoped to each provider
 responsible for ensuring its policies are not disruptive to the system.
 
 **Resolve duplicate policy IDs by provider priority.** When multiple providers
-supply a policy with the same `id`, the client must decide which one to keep.
-Implementations SHOULD assign each provider a priority — for example, OPAMP (1),
+supply a policy with the same ID, the client must decide which one to keep.
+Implementations SHOULD assign each provider a priority — for example, OpAMP (1),
 HTTP (2), FILE (3), CUSTOM (user-defined) — where a lower number is higher
-priority. When two policies share the same `id`, the policy from the
+priority. When two policies share the same ID, the policy from the
 higher-priority provider wins and the other is dropped. Where a policy from a
 lower-priority provider cannot be merged consistently with the higher-priority
 version, the lower-priority policy SHOULD be dropped in its entirety.
@@ -469,21 +733,42 @@ Instead, the runtime can apply a **commutative reduction** that always converges
 to the same answer. For `keep`, a natural choice is "most restrictive wins":
 
 ```python
+def restrictiveness(keep):
+    """Returns a numeric rank for a keep value. Lower = more restrictive.
+
+    Ranking:
+      none       → 0   (drop everything)
+      N/s        → 1   (N per second, rate limited)
+      N/m        → 2   (N per minute, rate limited)
+      N%         → 3   (percentage sampling, ordered by percentage ascending)
+      all        → 4   (keep everything)
+    """
+    if keep.value == "none":
+        return (0,)
+    if keep.unit == "per_second":
+        return (1, keep.amount)
+    if keep.unit == "per_minute":
+        return (2, keep.amount)
+    if keep.unit == "percent":
+        return (3, keep.percentage)
+    if keep.value == "all":
+        return (4,)
+
+def most_restrictive(a, b):
+    """Commutative merge: returns whichever keep value is more restrictive."""
+    return a if restrictiveness(a) <= restrictiveness(b) else b
+
 def resolve_keep(matching_policies):
-    """Resolve conflicting keep values.
+    """Resolve conflicting keep values across all matching policies.
 
-    Applies a commutative 'most restrictive' merge:
-      none < N/s < N/m < N% < all
-
-    The result is independent of policy ordering.
+    The result is independent of policy ordering because most_restrictive
+    is commutative: most_restrictive(a, b) == most_restrictive(b, a).
     """
     result = Keep("all")
     for policy in matching_policies:
         if policy.keep is None:
             continue
-        candidate = Keep(policy.keep)
-        # Keep the more restrictive of the two
-        result = most_restrictive(result, candidate)
+        result = most_restrictive(result, Keep(policy.keep))
     return result
 ```
 
@@ -553,7 +838,7 @@ transforming the data before passing it to the next.
 ### OPA (Open Policy Agent)
 
 OPA provides a general-purpose policy engine using the Rego query language.
-Originally designed for authorization and admission control in cloud-native
+Originally designed for authorization and admission control in cloud native
 environments, OPA can evaluate arbitrary policies against structured data. It is
 widely used in Kubernetes admission control, API authorization, and
 infrastructure policy enforcement.
@@ -612,7 +897,7 @@ configured in YAML as part of the collector pipeline.
 
 - Rules are embedded in pipeline configuration, not standalone.
 - Adding rules requires understanding the full pipeline context.
-- Not portable to SDKs or other runtimes without reimplementation.
+- Not portable to SDKs or other runtimes without another implementation.
 - No native support for dynamic updates without configuration reload.
 - Scale is limited by the sequential processing model.
 - No defined grammar for OTTL, making it impossible to run outside the
@@ -678,11 +963,11 @@ meter_provider:
                 endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}/v1/metric
 ```
 
-Here, I've created a custom component in java to allow filtering which metrics
+Here, I've created a custom component in Java to allow filtering which metrics
 are read. However, to insert / use this component I need to have all of the
 following:
 
-- Know that this component exists in the java SDK
+- Know that this component exists in the Java SDK
 - Know how to wire it into any existing metric export pipeline (e.g. my reader
   wraps another reader that has the real export config). Note: This likely means
   I need to understand the rest of the exporter configuration or be able to
@@ -718,9 +1003,21 @@ experiments, or anything else that the future may bring.
 
 ## Prototypes
 
-1. [Tero edge](https://github.com/usetero/edge)
-   1. a zig implementation of a proxy that applies policies.
-   2. later we will show our policy representation as a sample of this OTEP.
+- [usetero/policy](https://github.com/usetero/policy)
+  - The policy specification, defining the schema, matching behavior, merging
+    semantics, and conformance requirements.
+- [usetero/policy-go](https://github.com/usetero/policy-go)
+  - Go implementation of the policy specification, designed for integration with
+    the OpenTelemetry Collector and other Go-based telemetry components.
+- [usetero/policy-rs](https://github.com/usetero/policy-rs)
+  - Rust implementation of the policy specification, leveraging Hyperscan for
+    high-performance regular expression matching.
+- [usetero/policy-zig](https://github.com/usetero/policy-zig)
+  - Zig implementation of the policy specification, targeting zero heap
+    allocations on the hot path and maximum portability.
+- [usetero/policy-conformance](https://github.com/usetero/policy-conformance)
+  - Cross-language conformance test suite with 160+ tests covering filtering,
+    sampling, transformations, and consistent behavior across implementations.
 
 ## Future possibilities
 
