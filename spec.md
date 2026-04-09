@@ -223,11 +223,19 @@ unifies dropping, sampling, and rate limiting into a single concept.
 | `"all"`  | Keep all matching telemetry. This is the default. |
 | `"none"` | Drop all matching telemetry.                      |
 | `"N%"`   | Keep N percent of matching telemetry (0-100).     |
-| `"N/s"`  | Keep at most N records per second.                |
-| `"N/m"`  | Keep at most N records per minute.                |
+| `"N/s"`  | Keep at most N records per second (shorthand for `"N/1s"`).        |
+| `"N/m"`  | Keep at most N records per minute (shorthand for `"N/1m"`).        |
+| `"N/Ds"` | Keep at most N records per D-second window (`N` and `D` are positive integers). |
+| `"N/Dm"` | Keep at most N records per D-minute window (`N` and `D` are positive integers). |
 
 Implementations MUST support `"all"` and `"none"`. Implementations SHOULD
 support percentage-based sampling. Implementations MAY support rate limiting.
+
+For rate limiting, both `N` (limit) and `D` (window multiplier) MUST be
+positive integers. Fractional values are invalid and MUST be rejected.
+
+Examples: `"1/s"`, `"100/s"`, `"1/5s"`, `"1/300s"`, `"10/5m"`,
+`"1/m"`.
 
 When multiple policies match the same telemetry with different `keep` values,
 the most restrictive value MUST be applied:
@@ -754,7 +762,8 @@ the most restrictive value is applied:
 #### Sampling and Rate Limiting
 
 For probabilistic sampling (`keep: "N%"`) and rate limiting (`keep: "N/s"`,
-`keep: "N/m"`), the hit/miss outcome depends on the per-record decision:
+`keep: "N/m"`, `keep: "N/Ds"`, `keep: "N/Dm"`), the hit/miss outcome depends
+on the per-record decision:
 
 - When the sampling or rate limiting decision is **keep**, less restrictive
   matching policies record a **hit** (their intent was not overridden).
