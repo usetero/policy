@@ -204,6 +204,13 @@ message LogRedact {
 
   // Replacement value (e.g., "[REDACTED]")
   string replacement = 10;
+
+  // Optional RE2 regular expression for targeted replacement. If unset, the
+  // entire field value is replaced. If set and no match is present, no
+  // modification is applied. If set and a match is present without capture
+  // groups, the entire field value is replaced. If set and a match is present
+  // with one or more capture groups, only the first capture group is replaced.
+  optional string regex = 11;
 }
 
 // LogRename changes a field name.

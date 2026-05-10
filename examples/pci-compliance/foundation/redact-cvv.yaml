@@ -8,3 +8,5 @@ log:
   transform:
     redact:
       - log_attribute: ["cvv"]
+        regex: '^[0-9]{3,4}$'
+        replacement: "[REDACTED]"

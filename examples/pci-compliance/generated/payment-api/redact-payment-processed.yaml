@@ -10,4 +10,6 @@ log:
   transform:
     redact:
       - log_attribute: ["card_last_four"]
+        regex: '^[0-9]{4}$'
+        replacement: "[REDACTED]"
       - log_attribute: ["billing_address"]

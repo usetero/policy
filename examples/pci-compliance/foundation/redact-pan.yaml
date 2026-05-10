@@ -8,3 +8,5 @@ log:
   transform:
     redact:
       - log_attribute: ["pan"]
+        regex: '^([0-9]{9,15})([0-9]{4})$'
+        replacement: "[REDACTED]"

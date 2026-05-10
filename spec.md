@@ -330,16 +330,34 @@ If the specified field does not exist, the operation MUST be a no-op.
 
 #### LogRedact
 
-Masks a field value with a replacement string.
+Masks a field value, or a targeted portion of a field value, with a replacement
+string.
 
 ```
 LogRedact {
   field:       <field selector>  // REQUIRED, exactly one
   replacement: string            // OPTIONAL, defaults to "[REDACTED]"
+  regex:       string            // OPTIONAL
 }
 ```
 
 If the specified field does not exist, the operation MUST be a no-op.
+
+If `regex` is not supplied, the operation MUST replace the field's entire value
+with `replacement`.
+
+If `regex` is supplied, implementations MUST use RE2 syntax and evaluate the
+regular expression against the field's current string value:
+
+- If the regular expression does not match, the operation MUST be a no-op.
+- If the regular expression matches and contains no capture groups, the
+  operation MUST replace the field's entire value with `replacement`.
+- If the regular expression matches and contains one or more capture groups, the
+  operation MUST replace only the substring matched by the first capture group
+  with `replacement`. Text outside the first capture group MUST be preserved.
+
+If `regex` is supplied and the field's current value is not a string, the
+operation MUST be a no-op.
 
 #### LogRename
 
@@ -837,7 +855,7 @@ log:
         upsert: true
 ```
 
-Example with nested attribute access:
+Example with nested attribute access and targeted redaction:
 
 ```yaml
 id: redact-http-auth-header
@@ -849,6 +867,8 @@ log:
   transform:
     redact:
       - log_attribute: ["http", "request", "headers", "authorization"]
+        regex: '(?i)^bearer\s+(.+)$'
+        replacement: "[REDACTED]"
 ```
 
 Example metric policy:

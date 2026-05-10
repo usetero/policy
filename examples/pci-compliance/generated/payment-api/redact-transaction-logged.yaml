@@ -10,4 +10,8 @@ log:
   transform:
     redact:
       - log_attribute: ["card_number"]
+        regex: '^([0-9]{9,15})([0-9]{4})$'
+        replacement: "[REDACTED]"
       - log_attribute: ["account_id"]
+        regex: '^acct_([A-Za-z0-9]+)$'
+        replacement: "[REDACTED]"

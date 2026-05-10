@@ -11,3 +11,5 @@ log:
     redact:
       - log_attribute: ["payment_method"]
       - log_attribute: ["billing_email"]
+        regex: '^([^@]+)@(.+)$'
+        replacement: "[REDACTED]"
