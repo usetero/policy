@@ -350,9 +350,9 @@ If `regex` is supplied, implementations MUST use RE2 syntax and evaluate the
 regular expression against the field's current string value:
 
 - If the regular expression does not match, the operation MUST be a no-op.
-- If the regular expression matches, the operation MUST replace each
-  non-overlapping substring matched by the full regular expression with
-  `replacement`.
+- If the regular expression matches, the operation MUST replace all
+  non-overlapping instances of the full regular expression match with
+  `replacement`, not only the first match.
 - Capture groups MUST NOT change the replacement range. Capture groups only
   provide values that MAY be referenced from the replacement string.
 

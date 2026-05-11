@@ -208,10 +208,10 @@ message LogRedact {
 
   // Optional RE2 regular expression for targeted replacement. If unset, the
   // entire field value is replaced. If set and no match is present, no
-  // modification is applied. If set and a match is present, the substring
-  // matched by the full regular expression is replaced. Capture groups may be
-  // referenced from the replacement string, but do not change the replacement
-  // range.
+  // modification is applied. If set and a match is present, all non-overlapping
+  // instances of the full regular expression match are replaced. Capture groups
+  // may be referenced from the replacement string, but do not change the
+  // replacement range.
   optional string regex = 11;
 }
 
