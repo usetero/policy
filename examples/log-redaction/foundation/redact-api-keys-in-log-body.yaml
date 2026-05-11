@@ -1,0 +1,12 @@
+id: redact-api-keys-in-log-body
+name: Redact API keys in log body
+
+log:
+  match:
+    - log_field: LOG_FIELD_BODY
+      regex: "api_key="
+  transform:
+    redact:
+      - log_field: LOG_FIELD_BODY
+        regex: 'api_key=[A-Za-z0-9]{32}'
+        replacement: "api_key=[REDACTED]"
