@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/usetero/policy/compare/v1.3.0...v1.4.0) (2026-05-11)
+
+
+### Features
+
+* add support for targeted redactions ([#41](https://github.com/usetero/policy/issues/41)) ([31d4123](https://github.com/usetero/policy/commit/31d412384f7185e6d5fa363de6b3953f2bf2574a))
+
+
+### Bug Fixes
+
+* signoff should update deps ([#43](https://github.com/usetero/policy/issues/43)) ([1f0d4b2](https://github.com/usetero/policy/commit/1f0d4b2a1357b77ebef3a7afe87edb3925262f6a))
+
 ## [1.3.0](https://github.com/usetero/policy/compare/v1.2.0...v1.3.0) (2026-04-06)
 
 
