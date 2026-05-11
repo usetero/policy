@@ -70,6 +70,7 @@ tasks:
       - task: format
       - task: lint
       - task: build
+      - task: deps
       - echo "All checks passed"
 
   signoff:
