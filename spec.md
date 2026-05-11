@@ -350,14 +350,29 @@ If `regex` is supplied, implementations MUST use RE2 syntax and evaluate the
 regular expression against the field's current string value:
 
 - If the regular expression does not match, the operation MUST be a no-op.
-- If the regular expression matches and contains no capture groups, the
-  operation MUST replace the field's entire value with `replacement`.
-- If the regular expression matches and contains one or more capture groups, the
-  operation MUST replace only the substring matched by the first capture group
-  with `replacement`. Text outside the first capture group MUST be preserved.
+- If the regular expression matches, the operation MUST replace each
+  non-overlapping substring matched by the full regular expression with
+  `replacement`.
+- Capture groups MUST NOT change the replacement range. Capture groups only
+  provide values that MAY be referenced from the replacement string.
 
 If `regex` is supplied and the field's current value is not a string, the
 operation MUST be a no-op.
+
+When `regex` is supplied, `replacement` is interpreted as a replacement
+template. Implementations MUST support the following capture references:
+
+| Syntax    | Description                           |
+| --------- | ------------------------------------- |
+| `$0`      | The full regular expression match.    |
+| `$1`-`$99` | Numbered capture groups.             |
+| `${1}`-`${99}` | Numbered capture groups.        |
+| `${name}` | Named capture group.                  |
+| `$$`      | A literal dollar sign.                |
+
+References to missing capture groups MUST expand to the empty string. To
+replace an entire field value conditionally, use an anchored `regex` that matches
+the full field value.
 
 #### LogRename
 
@@ -867,8 +882,8 @@ log:
   transform:
     redact:
       - log_attribute: ["http", "request", "headers", "authorization"]
-        regex: '(?i)^bearer\s+(.+)$'
-        replacement: "[REDACTED]"
+        regex: '(?i)^(bearer\s+).+$'
+        replacement: "$1[REDACTED]"
 ```
 
 Example metric policy:

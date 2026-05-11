@@ -96,10 +96,10 @@ log:
     redact:
       - log_attribute: ["card_number"]
         regex: '^([0-9]{9,15})([0-9]{4})$'
-        replacement: "[REDACTED]"
+        replacement: "[REDACTED]$2"
       - log_attribute: ["account_id"]
-        regex: '^acct_([A-Za-z0-9]+)$'
-        replacement: "[REDACTED]"
+        regex: '^(acct_)[A-Za-z0-9]+$'
+        replacement: "$1[REDACTED]"
 ```
 
 **checkout-api/**
