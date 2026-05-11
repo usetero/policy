@@ -330,16 +330,49 @@ If the specified field does not exist, the operation MUST be a no-op.
 
 #### LogRedact
 
-Masks a field value with a replacement string.
+Masks a field value, or a targeted portion of a field value, with a replacement
+string.
 
 ```
 LogRedact {
   field:       <field selector>  // REQUIRED, exactly one
   replacement: string            // OPTIONAL, defaults to "[REDACTED]"
+  regex:       string            // OPTIONAL
 }
 ```
 
 If the specified field does not exist, the operation MUST be a no-op.
+
+If `regex` is not supplied, the operation MUST replace the field's entire value
+with `replacement`.
+
+If `regex` is supplied, implementations MUST use RE2 syntax and evaluate the
+regular expression against the field's current string value:
+
+- If the regular expression does not match, the operation MUST be a no-op.
+- If the regular expression matches, the operation MUST replace all
+  non-overlapping instances of the full regular expression match with
+  `replacement`, not only the first match.
+- Capture groups MUST NOT change the replacement range. Capture groups only
+  provide values that MAY be referenced from the replacement string.
+
+If `regex` is supplied and the field's current value is not a string, the
+operation MUST be a no-op.
+
+When `regex` is supplied, `replacement` is interpreted as a replacement
+template. Implementations MUST support the following capture references:
+
+| Syntax    | Description                           |
+| --------- | ------------------------------------- |
+| `$0`      | The full regular expression match.    |
+| `$1`-`$99` | Numbered capture groups.             |
+| `${1}`-`${99}` | Numbered capture groups.        |
+| `${name}` | Named capture group.                  |
+| `$$`      | A literal dollar sign.                |
+
+References to missing capture groups MUST expand to the empty string. To
+replace an entire field value conditionally, use an anchored `regex` that matches
+the full field value.
 
 #### LogRename
 
@@ -837,7 +870,7 @@ log:
         upsert: true
 ```
 
-Example with nested attribute access:
+Example with nested attribute access and targeted redaction:
 
 ```yaml
 id: redact-http-auth-header
@@ -849,6 +882,8 @@ log:
   transform:
     redact:
       - log_attribute: ["http", "request", "headers", "authorization"]
+        regex: '(?i)^(bearer\s+).+$'
+        replacement: "$1[REDACTED]"
 ```
 
 Example metric policy:

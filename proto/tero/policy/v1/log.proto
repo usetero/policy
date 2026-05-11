@@ -202,8 +202,17 @@ message LogRedact {
     AttributePath scope_attribute = 4;
   }
 
-  // Replacement value (e.g., "[REDACTED]")
+  // Replacement value (e.g., "[REDACTED]"). When regex is set, this is
+  // interpreted as a replacement template.
   string replacement = 10;
+
+  // Optional RE2 regular expression for targeted replacement. If unset, the
+  // entire field value is replaced. If set and no match is present, no
+  // modification is applied. If set and a match is present, all non-overlapping
+  // instances of the full regular expression match are replaced. Capture groups
+  // may be referenced from the replacement string, but do not change the
+  // replacement range.
+  optional string regex = 11;
 }
 
 // LogRename changes a field name.

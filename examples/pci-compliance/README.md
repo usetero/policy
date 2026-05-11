@@ -34,6 +34,8 @@ log:
   transform:
     redact:
       - log_attribute: ["cvv"]
+        regex: '^[0-9]{3,4}$'
+        replacement: "[REDACTED]"
 ```
 
 That's the entire answer. One file. No grep through pipeline configs. No "I
@@ -81,19 +83,23 @@ metric:
 - `redact-payment-processed.yaml` - Redact card_last_four, billing_address
 
 ```yaml
-id: payment-api-redact-payment-processed
-name: Redact payment processed events
+id: payment-api-redact-transaction-logged
+name: Redact transaction logged events
 
 log:
   match:
     - resource_attribute: ["service.name"]
       exact: payment-api
     - log_field: body
-      regex: "payment processed"
+      regex: "transaction logged"
   transform:
     redact:
-      - log_attribute: ["card_last_four"]
-      - log_attribute: ["billing_address"]
+      - log_attribute: ["card_number"]
+        regex: '^([0-9]{9,15})([0-9]{4})$'
+        replacement: "[REDACTED]$2"
+      - log_attribute: ["account_id"]
+        regex: '^(acct_)[A-Za-z0-9]+$'
+        replacement: "$1[REDACTED]"
 ```
 
 **checkout-api/**
