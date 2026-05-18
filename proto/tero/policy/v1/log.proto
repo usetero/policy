@@ -12,8 +12,8 @@ option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 
 // LogTarget defines matching and actions for logs.
 message LogTarget {
-  // Matchers to identify which logs this policy applies to (AND logic).
-  // Implementations MUST reject policies with an empty match list.
+  // Matchers to identify which logs this policy applies to (AND logic). This
+  // is the default matcher group for targets that only need one match surface.
   repeated LogMatcher match = 1;
 
   // The keep field controls whether matching telemetry survives. It unifies
@@ -45,6 +45,26 @@ message LogTarget {
   // Example: sample_key = log_attribute["request_id"] with keep = "10%" means
   // 10% of requests are kept, with all logs from each kept request preserved.
   LogSampleKey sample_key = 4;
+
+  // Alternative matcher groups for targets that can be identified by more than
+  // one stable match surface. Matchers inside each group are ANDed together.
+  // Groups are ORed together with the default match list above.
+  //
+  // Implementations MUST reject policies with no matchers in either match or
+  // match_group. Implementations MUST reject empty matcher groups.
+  repeated LogMatcherGroup match_group = 5;
+}
+
+// LogMatcherGroup defines one alternative log match surface. Matchers inside a
+// group are ANDed together. A LogTarget matches when its default match list
+// matches or any matcher group matches.
+message LogMatcherGroup {
+  // Optional human-readable name for this match surface.
+  string name = 1;
+
+  // Matchers in this group (AND logic). Implementations MUST reject empty
+  // matcher groups.
+  repeated LogMatcher match = 2;
 }
 
 // LogSampleKey specifies which field to use as the sampling key for consistent

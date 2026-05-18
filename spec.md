@@ -84,19 +84,38 @@ The `log` target defines matching criteria and actions for log records.
 
 ```
 LogTarget {
-  match:     LogMatcher[]   // REQUIRED, at least one matcher
-  keep:      string         // OPTIONAL, defaults to "all"
-  transform: LogTransform   // OPTIONAL
+  match:       LogMatcher[]       // OPTIONAL default matcher group
+  match_group: LogMatcherGroup[]  // OPTIONAL alternative matcher groups
+  keep:        string             // OPTIONAL, defaults to "all"
+  transform:   LogTransform       // OPTIONAL
 }
 ```
 
-A log target MUST contain at least one matcher. A log target MUST specify either
-a `keep` value other than `"all"` or a `transform`, or both.
+A log target MUST contain at least one matcher in `match` or `match_group`. A
+log target MUST specify either a `keep` value other than `"all"` or a
+`transform`, or both.
 
 ### Log Matching
 
-Matchers identify which log records a policy applies to. Multiple matchers are
-combined with AND logic: all matchers MUST match for the policy to apply.
+Matchers identify which log records a policy applies to. The `match` field is
+the default matcher group and uses AND logic: all matchers MUST match for the
+policy to apply.
+
+`match_group` defines alternative match surfaces for the same policy. Matchers
+inside a group use AND logic. Groups use OR logic. A log target matches when the
+default `match` group matches or any `match_group` matches.
+
+Implementations MUST reject empty matcher groups. Implementations MUST reject a
+log target with no matchers in either `match` or `match_group`.
+
+#### LogMatcherGroup Structure
+
+```
+LogMatcherGroup {
+  name:  string        // OPTIONAL, human-readable match surface name
+  match: LogMatcher[]  // REQUIRED, at least one matcher
+}
+```
 
 #### LogMatcher Structure
 
@@ -884,6 +903,28 @@ log:
       - log_attribute: ["http", "request", "headers", "authorization"]
         regex: '(?i)^(bearer\s+).+$'
         replacement: "$1[REDACTED]"
+```
+
+Example with alternative log match surfaces:
+
+```yaml
+id: drop-health-check-access-logs
+name: Drop health check access logs
+log:
+  match_group:
+    - name: body-template
+      match:
+        - log_field: LOG_FIELD_BODY
+          regex: '^GET /healthz .* 200 '
+    - name: structured-http
+      match:
+        - log_attribute: ["http", "request", "method"]
+          exact: GET
+        - log_attribute: ["url", "path"]
+          exact: /healthz
+        - log_attribute: ["http", "response", "status_code"]
+          exact: "200"
+  keep: none
 ```
 
 Example metric policy:
