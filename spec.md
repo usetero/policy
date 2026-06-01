@@ -218,24 +218,23 @@ does not match, and vice versa.
 The `keep` field controls whether matching telemetry survives processing. It
 unifies dropping, sampling, and rate limiting into a single concept.
 
-| Value    | Description                                       |
-| -------- | ------------------------------------------------- |
-| `"all"`  | Keep all matching telemetry. This is the default. |
-| `"none"` | Drop all matching telemetry.                      |
-| `"N%"`   | Keep N percent of matching telemetry (0-100).     |
-| `"N/s"`  | Keep at most N records per second (shorthand for `"N/1s"`).        |
-| `"N/m"`  | Keep at most N records per minute (shorthand for `"N/1m"`).        |
+| Value    | Description                                                                     |
+| -------- | ------------------------------------------------------------------------------- |
+| `"all"`  | Keep all matching telemetry. This is the default.                               |
+| `"none"` | Drop all matching telemetry.                                                    |
+| `"N%"`   | Keep N percent of matching telemetry (0-100).                                   |
+| `"N/s"`  | Keep at most N records per second (shorthand for `"N/1s"`).                     |
+| `"N/m"`  | Keep at most N records per minute (shorthand for `"N/1m"`).                     |
 | `"N/Ds"` | Keep at most N records per D-second window (`N` and `D` are positive integers). |
 | `"N/Dm"` | Keep at most N records per D-minute window (`N` and `D` are positive integers). |
 
 Implementations MUST support `"all"` and `"none"`. Implementations SHOULD
 support percentage-based sampling. Implementations MAY support rate limiting.
 
-For rate limiting, both `N` (limit) and `D` (window multiplier) MUST be
-positive integers. Fractional values are invalid and MUST be rejected.
+For rate limiting, both `N` (limit) and `D` (window multiplier) MUST be positive
+integers. Fractional values are invalid and MUST be rejected.
 
-Examples: `"1/s"`, `"100/s"`, `"1/5s"`, `"1/300s"`, `"10/5m"`,
-`"1/m"`.
+Examples: `"1/s"`, `"100/s"`, `"1/5s"`, `"1/300s"`, `"10/5m"`, `"1/m"`.
 
 When multiple policies match the same telemetry with different `keep` values,
 the most restrictive value MUST be applied:
@@ -362,17 +361,17 @@ operation MUST be a no-op.
 When `regex` is supplied, `replacement` is interpreted as a replacement
 template. Implementations MUST support the following capture references:
 
-| Syntax    | Description                           |
-| --------- | ------------------------------------- |
-| `$0`      | The full regular expression match.    |
-| `$1`-`$99` | Numbered capture groups.             |
-| `${1}`-`${99}` | Numbered capture groups.        |
-| `${name}` | Named capture group.                  |
-| `$$`      | A literal dollar sign.                |
+| Syntax         | Description                        |
+| -------------- | ---------------------------------- |
+| `$0`           | The full regular expression match. |
+| `$1`-`$99`     | Numbered capture groups.           |
+| `${1}`-`${99}` | Numbered capture groups.           |
+| `${name}`      | Named capture group.               |
+| `$$`           | A literal dollar sign.             |
 
-References to missing capture groups MUST expand to the empty string. To
-replace an entire field value conditionally, use an anchored `regex` that matches
-the full field value.
+References to missing capture groups MUST expand to the empty string. To replace
+an entire field value conditionally, use an anchored `regex` that matches the
+full field value.
 
 #### LogRename
 
@@ -753,15 +752,82 @@ enables parallel matching without coordination.
 
 ### Error Handling
 
-Implementations MUST be fail-open:
+Implementations MUST be fail-open: a malformed, invalid, or failing policy MUST
+NOT cause telemetry to be lost or incorrectly modified. Errors MUST be isolated
+to the offending policy — every other policy continues to operate normally.
 
-- If a policy fails to parse, it MUST be skipped. Other policies MUST continue
-  to execute.
-- If a policy fails to evaluate (e.g., invalid regex at runtime), the telemetry
-  MUST pass through unmodified by that policy.
-- Policy failures MUST NOT cause telemetry loss.
+Policy errors fall into three categories, distinguished by when they occur:
+parse errors, compilation (validation) errors, and runtime evaluation errors.
 
-Implementations SHOULD log policy evaluation errors for debugging.
+#### Parse Errors
+
+A parse error occurs when a policy cannot be decoded from its serialized form
+(e.g., malformed protobuf, invalid YAML/JSON, or a structurally invalid policy
+message).
+
+- A policy that fails to parse MUST be skipped.
+- Other policies MUST continue to be parsed and executed.
+
+#### Compilation Errors
+
+After a policy is parsed, implementations validate its contents before using it
+to process telemetry. This is the **compilation** stage. Validation is performed
+independently per policy.
+
+A policy is invalid if any of the following hold:
+
+| Condition                                                     | Example                                                                            |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| A matcher specifies no field selector.                        | empty `field` oneof                                                                |
+| A field selector references an unspecified well-known enum.   | `LOG_FIELD_UNSPECIFIED`, `METRIC_FIELD_UNSPECIFIED`, `SPAN_KIND_UNSPECIFIED`, etc. |
+| An attribute selector has an empty path.                      | `log_attribute: []`                                                                |
+| A matcher specifies no match condition where one is required. | empty `match` oneof                                                                |
+| A `regex` matcher or `redact` pattern is not valid RE2.       | `regex: "([a-z"`                                                                   |
+| A `keep` value is malformed.                                  | `keep: "banana"`, fractional rate-limit values                                     |
+| A trace sampling configuration is invalid.                    | `percentage` out of range, unknown `mode`                                          |
+| A transform `rename` has an empty `to` target.                | `rename: { from: ..., to: "" }`                                                    |
+| A transform operation references an invalid field selector.   | empty path, unspecified enum, or no field set                                      |
+
+Implementations:
+
+- MUST NOT apply an invalid policy to telemetry. An invalid policy MUST be
+  inert: it MUST NOT match, keep, drop, sample, or transform any telemetry. In
+  particular, an invalid matcher or transform operation that cannot be compiled
+  MUST be skipped in a way that prevents the policy from matching, rather than
+  defaulting to a permissive value that could alter telemetry handling.
+- MUST NOT abort compilation of the remaining policies in a batch because one
+  policy is invalid. Valid policies in the same batch MUST still compile and
+  execute.
+- SHOULD collect all validation errors for a policy rather than stopping at the
+  first, so operators can correct every problem in a single pass.
+
+A compilation error is distinct from a parse error: the policy is well-formed
+but semantically invalid. Implementations MAY handle both the same way (skip and
+report) but SHOULD distinguish them in diagnostics.
+
+#### Runtime Evaluation Errors
+
+A runtime evaluation error occurs while applying a compiled, valid policy to a
+specific telemetry record (e.g., a type mismatch when evaluating a field).
+
+- If a policy fails to evaluate against a record, the telemetry MUST pass
+  through unmodified by that policy.
+- Runtime evaluation errors MUST NOT cause telemetry loss.
+
+#### Error Reporting
+
+Implementations SHOULD make policy errors observable:
+
+- Compilation errors for a policy MUST be reported via the `errors` field of
+  `PolicySyncStatus` (a list of human-readable error strings) so the policy
+  server and operators can identify broken policies. A policy with compilation
+  errors MUST be reported even when it has no match-hit or match-miss counters.
+- Error strings SHOULD identify the location of each problem within the policy,
+  for example `log: match[0]: attribute has empty path`,
+  `trace: keep: <reason>`, or
+  `log: transform: redact[2]: invalid regex "...": <reason>`.
+- Implementations SHOULD log policy parse, compilation, and evaluation errors
+  for debugging.
 
 ### Disabled Policies
 
@@ -772,11 +838,13 @@ disabled policies as if they do not exist.
 
 Implementations MUST track match hits and misses for each policy. These counters
 are reported via `PolicySyncStatus.match_hits` and
-`PolicySyncStatus.match_misses`.
+`PolicySyncStatus.match_misses`. Compilation errors for a policy are reported
+alongside these counters via `PolicySyncStatus.errors`; see
+[Error Handling](#error-handling).
 
 Counters are only incremented for policies whose matchers fire. If a policy's
-matchers do not match a telemetry record, neither counter is incremented for that
-policy.
+matchers do not match a telemetry record, neither counter is incremented for
+that policy.
 
 A **match hit** is counted when a policy matches a telemetry record and the
 record's final keep outcome is consistent with what the policy intended. A
@@ -795,8 +863,8 @@ the most restrictive value is applied:
 #### Sampling and Rate Limiting
 
 For probabilistic sampling (`keep: "N%"`) and rate limiting (`keep: "N/s"`,
-`keep: "N/m"`, `keep: "N/Ds"`, `keep: "N/Dm"`), the hit/miss outcome depends
-on the per-record decision:
+`keep: "N/m"`, `keep: "N/Ds"`, `keep: "N/Dm"`), the hit/miss outcome depends on
+the per-record decision:
 
 - When the sampling or rate limiting decision is **keep**, less restrictive
   matching policies record a **hit** (their intent was not overridden).
@@ -811,14 +879,14 @@ Given 3 log records and 2 policies:
 - `keep-info`: matches `severity_text = "INFO"` → `keep: all`
 - `drop-health`: matches body contains `"health"` → `keep: none`
 
-| Record                         | `keep-info`  | `drop-health` | Outcome |
-| ------------------------------ | ------------ | ------------- | ------- |
+| Record                        | `keep-info`  | `drop-health` | Outcome |
+| ----------------------------- | ------------ | ------------- | ------- |
 | `"health check ok"` (INFO)    | miss         | hit           | dropped |
 | `"user action logged"` (INFO) | hit          | _(no match)_  | kept    |
 | `"database error"` (ERROR)    | _(no match)_ | _(no match)_  | kept    |
 
-Result: `keep-info` reports 1 hit / 1 miss. `drop-health` reports 1 hit /
-0 misses.
+Result: `keep-info` reports 1 hit / 1 miss. `drop-health` reports 1 hit / 0
+misses.
 
 The first record matches both policies, but `drop-health` (`keep: none`) is more
 restrictive and causes the drop. `keep-info` records a miss because its intent
@@ -935,6 +1003,9 @@ An implementation conforms to this specification if it:
 5. Maintains fail-open behavior for all error conditions.
 6. Respects the `enabled` field.
 7. Tracks match hits and misses according to the match tracking semantics.
+8. Validates policies per the [compilation error](#compilation-errors) rules,
+   keeps invalid policies inert without aborting valid policies in the same
+   batch, and reports compilation errors via `PolicySyncStatus.errors`.
 
 Implementations MAY support a subset of features (e.g., omit rate limiting) but
 MUST clearly document unsupported features.
