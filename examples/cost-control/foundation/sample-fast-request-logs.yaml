@@ -1,0 +1,12 @@
+id: sample-fast-request-logs
+name: Sample fast request logs at 5%
+description: >
+  Fast requests are rarely interesting, so keep only a small sample of them.
+  Demonstrates the lt comparator against a floating-point attribute — the 0.1
+  literal is matched as a double, not coerced to a string.
+
+log:
+  match:
+    - log_attribute: ["duration_seconds"]
+      lt: 0.1
+  keep: "5%"

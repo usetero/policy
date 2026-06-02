@@ -1,0 +1,14 @@
+id: drop-successful-request-logs
+name: Drop logs for successful HTTP responses
+description: >
+  Keeps only error logs by dropping any record whose status code is in the
+  2xx/3xx range. Demonstrates numeric range matching with gte + lt against an
+  integer attribute (status codes are integers, not strings).
+
+log:
+  match:
+    - log_attribute: ["http.response.status_code"]
+      gte: 200
+    - log_attribute: ["http.response.status_code"]
+      lt: 400
+  keep: none

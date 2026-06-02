@@ -1,0 +1,12 @@
+id: drop-cache-hit-logs
+name: Drop logs flagged as cache hits
+description: >
+  Cache hits are high volume and low value. This matches the boolean attribute
+  directly with equals instead of regexing a stringified flag — equals: true
+  matches a real boolean value, which the string match types cannot see.
+
+log:
+  match:
+    - log_attribute: ["cache.hit"]
+      equals: true
+  keep: none

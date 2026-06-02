@@ -175,15 +175,15 @@ output.
 
 ##### LogField Enum Values
 
-| Value                           | Description                                          |
-| ------------------------------- | ---------------------------------------------------- |
-| `LOG_FIELD_BODY`                | The log message body.                                |
-| `LOG_FIELD_SEVERITY_TEXT`       | Severity as string (e.g., "DEBUG", "INFO", "ERROR"). |
-| `LOG_FIELD_TRACE_ID`            | Associated trace identifier.                         |
-| `LOG_FIELD_SPAN_ID`             | Associated span identifier.                          |
-| `LOG_FIELD_EVENT_NAME`          | Event name for event logs.                           |
-| `LOG_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL.                                 |
-| `LOG_FIELD_SCOPE_SCHEMA_URL`    | Scope schema URL.                                    |
+| Value                           | Type   | Description                                          |
+| ------------------------------- | ------ | ---------------------------------------------------- |
+| `LOG_FIELD_BODY`                | string | The log message body.                                |
+| `LOG_FIELD_SEVERITY_TEXT`       | string | Severity as string (e.g., "DEBUG", "INFO", "ERROR"). |
+| `LOG_FIELD_TRACE_ID`            | bytes  | Associated trace identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `LOG_FIELD_SPAN_ID`             | bytes  | Associated span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `LOG_FIELD_EVENT_NAME`          | string | Event name for event logs.                           |
+| `LOG_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.                                 |
+| `LOG_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.                                    |
 
 #### Match Types
 
@@ -191,16 +191,168 @@ A matcher MUST specify exactly one match type:
 
 | Type          | Value Type | Description                                                    |
 | ------------- | ---------- | -------------------------------------------------------------- |
-| `exact`       | string     | Field value MUST equal the specified string exactly.           |
-| `regex`       | string     | Field value MUST match the regular expression.                 |
+| `exact`       | string     | String field value MUST equal the specified string exactly.    |
+| `regex`       | string     | String field value MUST match the regular expression.          |
 | `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
-| `starts_with` | string     | Field value MUST begin with the specified literal string.      |
-| `ends_with`   | string     | Field value MUST end with the specified literal string.        |
-| `contains`    | string     | Field value MUST contain the specified literal substring.      |
+| `starts_with` | string     | String field value MUST begin with the specified literal string. |
+| `ends_with`   | string     | String field value MUST end with the specified literal string. |
+| `contains`    | string     | String field value MUST contain the specified literal substring. |
+| `equals`      | Value      | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `gt`          | NumericValue | Numeric field value MUST be greater than the value.          |
+| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value. |
+| `lt`          | NumericValue | Numeric field value MUST be less than the value.             |
+| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value. |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
 consistency.
+
+#### Typed and Comparison Matching
+
+The `exact`, `regex`, `starts_with`, `ends_with`, and `contains` match types
+operate on the field's **string** value. For most non-string values (bool, int,
+double) they never match; use the typed `equals` matcher or the numeric
+comparison matchers `gt`, `gte`, `lt`, and `lte` instead. Bytes-typed fields are
+the exception and have dedicated handling — see
+[Bytes and Identifier Fields](#bytes-and-identifier-fields).
+
+These matchers carry a typed value rather than a string. `equals` uses `Value`,
+which holds any non-string scalar; the comparison matchers use `NumericValue`,
+which holds only a number:
+
+```
+Value {
+  // exactly one of:
+  bool_value:   bool
+  int_value:    int64
+  double_value: double
+  bytes_value:  bytes    // raw bytes (base64 in JSON)
+  hex_value:    string   // bytes as a hex string (readable; see below)
+}
+
+NumericValue {
+  // exactly one of:
+  int_value:    int64
+  double_value: double
+}
+```
+
+Two distinct types are used deliberately: because the comparison matchers take a
+`NumericValue`, comparing against a non-numeric value (a bool or bytes) is
+unrepresentable in the schema rather than something that must be rejected during
+compilation. `Value` has no string variant for the same reason — string
+equality is expressed with `exact`. `int_value` preserves full 64-bit precision
+for large integer fields (for example, nanosecond timestamps) that a `double`
+cannot represent exactly.
+
+> **Future direction:** `exact` is expected to be deprecated. Once `Value` gains
+> a string variant, all equality — string and non-string — will be expressed
+> through a single `equals` matcher, and `exact` will be retained only for
+> backward compatibility. New policies SHOULD treat `exact` and `equals` as the
+> same concept differing only by the value's type.
+
+**Semantics:**
+
+- `equals` matches if and only if the field value has the same type and value as
+  the supplied `Value`. Integer and floating-point values are compared in a
+  single numeric domain, so an `int_value` matcher MAY match a `double` field
+  with an equal numeric value and vice versa. All other type pairings (for
+  example, an `int_value` matcher against a string field) MUST NOT match.
+- `gt`, `gte`, `lt`, and `lte` perform numeric comparison against `int` and
+  `double` field values. A non-numeric field value MUST NOT match.
+- A type mismatch is a non-match, never a runtime error (fail-open).
+- `case_insensitive` has no effect on `equals` or the comparison matchers; it
+  applies only to the string match types.
+- `negate` inverts the result, as with any matcher.
+
+**Authoring:** As with [AttributePath](#attributepath), implementations MUST
+accept both the canonical proto form and scalar shorthand when unmarshaling from
+YAML/JSON. For shorthand, the literal's type determines the `Value` variant:
+
+```yaml
+# Shorthand — type inferred from the literal
+- log_attribute: ["http.response.status_code"]
+  gte: 500                 # int
+- log_attribute: ["sampling.ratio"]
+  lt: 0.5                  # double
+- log_attribute: ["deprecated"]
+  equals: true             # bool
+
+# Canonical proto form
+- log_attribute: ["http.response.status_code"]
+  equals:
+    int_value: 200
+```
+
+Bytes are supplied either as the proto-native base64 `bytes_value` or, more
+readably, as a hex string in `hex_value`; see
+[Bytes and Identifier Fields](#bytes-and-identifier-fields).
+
+**Validation:** A string value supplied to `equals` (use `exact` instead), and a
+bool or bytes value supplied to a comparison matcher, are not representable in
+`Value`/`NumericValue` and MUST be rejected when unmarshaling. Per
+[Compilation Errors](#compilation-errors), a policy is also invalid if a
+`hex_value` is not valid hexadecimal (non-hex characters or an odd number of
+digits), or if the typed value is left unset (an empty `Value`/`NumericValue`).
+
+#### Bytes and Identifier Fields
+
+Some fields are byte sequences rather than strings. The well-known identifier
+fields — `*_TRACE_ID`, `*_SPAN_ID`, and `*_PARENT_SPAN_ID` — are `bytes`, as is
+any telemetry attribute whose value is a byte sequence. Each well-known field's
+type is given in its enum table. The `link_trace_id` selector also carries a
+trace id and follows the same rules.
+
+**Canonical encoding.** Bytes are authored and rendered as **lowercase
+hexadecimal** with an even number of digits. Hex is the canonical human encoding
+because it is how identifiers appear throughout OpenTelemetry (for example, the
+W3C `traceparent` header). Implementations MUST decode the hex literal to raw
+bytes **once, at policy-compile time**, and store the decoded bytes; the bytes —
+never the hex text — are what appear in the canonical protobuf form, so the
+encoding cost is paid once per policy rather than once per telemetry record.
+
+**Authoring.** A bytes-typed field is matched as follows:
+
+```yaml
+# Well-known identifier field: a plain string literal is decoded as hex,
+# because the field's declared type is bytes (no decoration needed).
+- trace_field: TRACE_FIELD_SPAN_ID
+  exact: "8a3f0e1234567890"
+
+# Arbitrary bytes attribute: the type is not known from the field, so the bytes
+# value is supplied explicitly via equals.
+- log_attribute: ["raw.token"]
+  equals:
+    hex_value: "deadbeef"      # hex string (readable)
+- log_attribute: ["raw.token"]
+  equals:
+    bytes_value: "3q2+7w=="    # proto-native base64
+```
+
+`hex_value` and `bytes_value` are two encodings of the same bytes; an
+implementation decodes whichever is set to raw bytes at compile time, so they
+are interchangeable.
+
+**Matching semantics on a bytes-typed field:**
+
+- `exact` and `equals` decode the hex (or base64) literal once and compare
+  `bytes == bytes`. Hex input is case-insensitive; the comparison is over raw
+  bytes, so length and value are checked exactly.
+- `exists` is unchanged.
+- `regex`, `starts_with`, `ends_with`, and `contains` treat the field as a
+  string, matching against its canonical lowercase-hex rendering. This keeps
+  identifier prefix and substring matching deterministic.
+- The numeric comparison matchers (`gt`, `gte`, `lt`, `lte`) do not apply to
+  bytes.
+
+**Type coercion and performance.** Implementations SHOULD always coerce between a
+field's declared type and the matcher literal — for example, decoding a hex
+string to bytes for a bytes-typed field — so a correctly authored policy matches
+regardless of how the literal was written. For performance, policies SHOULD also
+include a string match type where practical: implementations commonly optimize
+string and regular-expression matching with a dedicated multi-pattern engine, and
+a string matcher lets that fast path pre-filter records before a typed comparison
+runs.
 
 #### Case Insensitivity
 
@@ -451,13 +603,13 @@ See [AttributePath](#attributepath) for path syntax.
 
 ##### MetricField Enum Values
 
-| Value                              | Description             |
-| ---------------------------------- | ----------------------- |
-| `METRIC_FIELD_NAME`                | The metric name.        |
-| `METRIC_FIELD_DESCRIPTION`         | The metric description. |
-| `METRIC_FIELD_UNIT`                | The metric unit.        |
-| `METRIC_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL.    |
-| `METRIC_FIELD_SCOPE_SCHEMA_URL`    | Scope schema URL.       |
+| Value                              | Type   | Description             |
+| ---------------------------------- | ------ | ----------------------- |
+| `METRIC_FIELD_NAME`                | string | The metric name.        |
+| `METRIC_FIELD_DESCRIPTION`         | string | The metric description. |
+| `METRIC_FIELD_UNIT`                | string | The metric unit.        |
+| `METRIC_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.    |
+| `METRIC_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.       |
 
 ##### MetricType Enum Values
 
@@ -476,12 +628,17 @@ which performs implicit equality):
 
 | Type          | Value Type | Description                                                    |
 | ------------- | ---------- | -------------------------------------------------------------- |
-| `exact`       | string     | Field value MUST equal the specified string exactly.           |
-| `regex`       | string     | Field value MUST match the regular expression.                 |
+| `exact`       | string     | String field value MUST equal the specified string exactly.    |
+| `regex`       | string     | String field value MUST match the regular expression.          |
 | `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
-| `starts_with` | string     | Field value MUST begin with the specified literal string.      |
-| `ends_with`   | string     | Field value MUST end with the specified literal string.        |
-| `contains`    | string     | Field value MUST contain the specified literal substring.      |
+| `starts_with` | string     | String field value MUST begin with the specified literal string. |
+| `ends_with`   | string     | String field value MUST end with the specified literal string. |
+| `contains`    | string     | String field value MUST contain the specified literal substring. |
+| `equals`      | Value      | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `gt`          | NumericValue | Numeric field value MUST be greater than the value.          |
+| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value. |
+| `lt`          | NumericValue | Numeric field value MUST be less than the value.             |
+| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value. |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
@@ -556,23 +713,23 @@ A matcher MUST specify exactly one field selector:
 | `span_status`        | SpanStatusCode enum | Span status code (implicit equality match).      |
 | `event_name`         | string              | Event name (matches if span contains the event). |
 | `event_attribute`    | AttributePath       | Event attribute path (matches if present).       |
-| `link_trace_id`      | string              | Link trace ID (matches if span has link).        |
+| `link_trace_id`      | string (hex)        | Link trace ID, authored as hex and matched as bytes (matches if span has link). See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
 
 See [AttributePath](#attributepath) for path syntax.
 
 ##### TraceField Enum Values
 
-| Value                             | Description                    |
-| --------------------------------- | ------------------------------ |
-| `TRACE_FIELD_NAME`                | The span name.                 |
-| `TRACE_FIELD_TRACE_ID`            | The trace identifier.          |
-| `TRACE_FIELD_SPAN_ID`             | The span identifier.           |
-| `TRACE_FIELD_PARENT_SPAN_ID`      | The parent span identifier.    |
-| `TRACE_FIELD_TRACE_STATE`         | The W3C tracestate.            |
-| `TRACE_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL.           |
-| `TRACE_FIELD_SCOPE_SCHEMA_URL`    | Scope schema URL.              |
-| `TRACE_FIELD_SCOPE_NAME`          | Instrumentation scope name.    |
-| `TRACE_FIELD_SCOPE_VERSION`       | Instrumentation scope version. |
+| Value                             | Type   | Description                    |
+| --------------------------------- | ------ | ------------------------------ |
+| `TRACE_FIELD_NAME`                | string | The span name.                 |
+| `TRACE_FIELD_TRACE_ID`            | bytes  | The trace identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `TRACE_FIELD_SPAN_ID`             | bytes  | The span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `TRACE_FIELD_PARENT_SPAN_ID`      | bytes  | The parent span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `TRACE_FIELD_TRACE_STATE`         | string | The W3C tracestate.            |
+| `TRACE_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.           |
+| `TRACE_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.              |
+| `TRACE_FIELD_SCOPE_NAME`          | string | Instrumentation scope name.    |
+| `TRACE_FIELD_SCOPE_VERSION`       | string | Instrumentation scope version. |
 
 ##### SpanKind Enum Values
 
@@ -599,12 +756,17 @@ A matcher MUST specify exactly one match type (except when using `span_kind` or
 
 | Type          | Value Type | Description                                                    |
 | ------------- | ---------- | -------------------------------------------------------------- |
-| `exact`       | string     | Field value MUST equal the specified string exactly.           |
-| `regex`       | string     | Field value MUST match the regular expression.                 |
+| `exact`       | string     | String field value MUST equal the specified string exactly.    |
+| `regex`       | string     | String field value MUST match the regular expression.          |
 | `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
-| `starts_with` | string     | Field value MUST begin with the specified literal string.      |
-| `ends_with`   | string     | Field value MUST end with the specified literal string.        |
-| `contains`    | string     | Field value MUST contain the specified literal substring.      |
+| `starts_with` | string     | String field value MUST begin with the specified literal string. |
+| `ends_with`   | string     | String field value MUST end with the specified literal string. |
+| `contains`    | string     | String field value MUST contain the specified literal substring. |
+| `equals`      | Value      | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `gt`          | NumericValue | Numeric field value MUST be greater than the value.          |
+| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value. |
+| `lt`          | NumericValue | Numeric field value MUST be less than the value.             |
+| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value. |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
@@ -783,6 +945,7 @@ A policy is invalid if any of the following hold:
 | An attribute selector has an empty path.                      | `log_attribute: []`                                                                |
 | A matcher specifies no match condition where one is required. | empty `match` oneof                                                                |
 | A `regex` matcher or `redact` pattern is not valid RE2.       | `regex: "([a-z"`                                                                   |
+| A `hex_value` is not valid hexadecimal.                       | `hex_value: "xyz"`, odd-length hex                                                 |
 | A `keep` value is malformed.                                  | `keep: "banana"`, fractional rate-limit values                                     |
 | A trace sampling configuration is invalid.                    | `percentage` out of range, unknown `mode`                                          |
 | A transform `rename` has an empty `to` target.                | `rename: { from: ..., to: "" }`                                                    |
@@ -988,6 +1151,46 @@ name: Keep all error spans
 trace:
   match:
     - span_status: ERROR
+  keep:
+    percentage: 100.0
+```
+
+Example with typed equality and numeric comparison:
+
+```yaml
+id: drop-successful-request-logs
+name: Drop logs for successful HTTP responses
+log:
+  match:
+    # gte + lt match an integer attribute; the literals are ints, not strings
+    - log_attribute: ["http.response.status_code"]
+      gte: 200
+    - log_attribute: ["http.response.status_code"]
+      lt: 400
+  keep: none
+```
+
+```yaml
+id: drop-cache-hit-logs
+name: Drop logs flagged as cache hits
+log:
+  match:
+    # equals matches the boolean value directly
+    - log_attribute: ["cache.hit"]
+      equals: true
+  keep: none
+```
+
+Example matching a bytes identifier field by hex:
+
+```yaml
+id: keep-spans-for-trace
+name: Keep all spans for one trace
+trace:
+  match:
+    # trace_id is bytes; the hex literal is decoded once and compared as bytes
+    - trace_field: TRACE_FIELD_TRACE_ID
+      exact: "4bf92f3577b34da6a3ce929d0e0e4736"
   keep:
     percentage: 100.0
 ```

@@ -3,10 +3,12 @@ name: Drop synthetic monitoring spans
 description: >
   Drops spans from synthetic monitoring and automated tests.
   These spans are useful for alerting but not for trace analysis.
+  The synthetic attribute is a boolean, matched by type with equals: true
+  rather than as the string "true".
 
 trace:
   match:
     - span_attribute: ["synthetic"]
-      exact: "true"
+      equals: true
   keep:
     percentage: 0.0

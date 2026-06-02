@@ -1,0 +1,14 @@
+id: keep-slow-spans-by-duration
+name: Keep all spans slower than 1s
+description: >
+  Slow spans are the ones worth investigating, so retain them in full. Matches
+  the numeric duration attribute with the gte comparator. Because integer and
+  floating-point values share one numeric domain, gte: 1000 matches whether
+  duration_ms is stored as an int or a double.
+
+trace:
+  match:
+    - span_attribute: ["duration_ms"]
+      gte: 1000
+  keep:
+    percentage: 100.0
