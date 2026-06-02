@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/usetero/policy/compare/v1.4.0...v1.5.0) (2026-06-02)
+
+
+### Features
+
+* handle typing better ([#49](https://github.com/usetero/policy/issues/49)) ([3cb89cb](https://github.com/usetero/policy/commit/3cb89cb03c1da48658f30a4c01fef875fed7a74d))
+* introduce error handling behavior to spec ([#47](https://github.com/usetero/policy/issues/47)) ([614bd4d](https://github.com/usetero/policy/commit/614bd4d4b51927204c4a4d01bb0a48e882a4e36b))
+
 ## [1.4.0](https://github.com/usetero/policy/compare/v1.3.0...v1.4.0) (2026-05-11)
 
 
