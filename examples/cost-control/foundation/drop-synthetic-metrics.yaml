@@ -1,0 +1,12 @@
+id: drop-synthetic-metrics
+name: Drop metrics from synthetic traffic
+description: >
+  Synthetic/load-test traffic inflates metric volume without reflecting real
+  usage. Datapoints carry a boolean `synthetic` attribute; equals: true matches
+  it by type, which string matchers cannot do.
+
+metric:
+  match:
+    - datapoint_attribute: ["synthetic"]
+      equals: true
+  keep: false
