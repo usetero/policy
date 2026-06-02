@@ -245,6 +245,12 @@ equality is expressed with `exact`. `int_value` preserves full 64-bit precision
 for large integer fields (for example, nanosecond timestamps) that a `double`
 cannot represent exactly.
 
+> **Future direction:** `exact` is expected to be deprecated. Once `Value` gains
+> a string variant, all equality — string and non-string — will be expressed
+> through a single `equals` matcher, and `exact` will be retained only for
+> backward compatibility. New policies SHOULD treat `exact` and `equals` as the
+> same concept differing only by the value's type.
+
 **Semantics:**
 
 - `equals` matches if and only if the field value has the same type and value as

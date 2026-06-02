@@ -76,6 +76,11 @@ message AttributePath {
 // (trace/span ids) readable in the canonical proto/JSON form instead of base64.
 // A bare string literal (e.g. `equals: "foo"`) MUST be rejected — use `exact`
 // for strings.
+//
+// Future direction: the `exact` match type is expected to be deprecated. Once a
+// string variant is added to this message, all equality (string and non-string)
+// will be expressed through `equals`, with `exact` kept only for backward
+// compatibility.
 message Value {
   // Exactly one must be set.
   oneof value {
