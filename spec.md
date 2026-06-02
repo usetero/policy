@@ -191,16 +191,98 @@ A matcher MUST specify exactly one match type:
 
 | Type          | Value Type | Description                                                    |
 | ------------- | ---------- | -------------------------------------------------------------- |
-| `exact`       | string     | Field value MUST equal the specified string exactly.           |
-| `regex`       | string     | Field value MUST match the regular expression.                 |
+| `exact`       | string     | String field value MUST equal the specified string exactly.    |
+| `regex`       | string     | String field value MUST match the regular expression.          |
 | `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
-| `starts_with` | string     | Field value MUST begin with the specified literal string.      |
-| `ends_with`   | string     | Field value MUST end with the specified literal string.        |
-| `contains`    | string     | Field value MUST contain the specified literal substring.      |
+| `starts_with` | string     | String field value MUST begin with the specified literal string. |
+| `ends_with`   | string     | String field value MUST end with the specified literal string. |
+| `contains`    | string     | String field value MUST contain the specified literal substring. |
+| `equals`      | Value      | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `gt`          | NumericValue | Numeric field value MUST be greater than the value.          |
+| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value. |
+| `lt`          | NumericValue | Numeric field value MUST be less than the value.             |
+| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value. |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
 consistency.
+
+#### Typed and Comparison Matching
+
+The `exact`, `regex`, `starts_with`, `ends_with`, and `contains` match types
+operate only on **string** field values; a non-string field value never matches
+them. To match non-string values, use the typed `equals` matcher or the numeric
+comparison matchers `gt`, `gte`, `lt`, and `lte`.
+
+These matchers carry a typed value rather than a string. `equals` uses `Value`,
+which holds any non-string scalar; the comparison matchers use `NumericValue`,
+which holds only a number:
+
+```
+Value {
+  // exactly one of:
+  bool_value:   bool
+  int_value:    int64
+  double_value: double
+  bytes_value:  bytes
+}
+
+NumericValue {
+  // exactly one of:
+  int_value:    int64
+  double_value: double
+}
+```
+
+Two distinct types are used deliberately: because the comparison matchers take a
+`NumericValue`, comparing against a non-numeric value (a bool or bytes) is
+unrepresentable in the schema rather than something that must be rejected during
+compilation. `Value` has no string variant for the same reason — string
+equality is expressed with `exact`. `int_value` preserves full 64-bit precision
+for large integer fields (for example, nanosecond timestamps) that a `double`
+cannot represent exactly.
+
+**Semantics:**
+
+- `equals` matches if and only if the field value has the same type and value as
+  the supplied `Value`. Integer and floating-point values are compared in a
+  single numeric domain, so an `int_value` matcher MAY match a `double` field
+  with an equal numeric value and vice versa. All other type pairings (for
+  example, an `int_value` matcher against a string field) MUST NOT match.
+- `gt`, `gte`, `lt`, and `lte` perform numeric comparison against `int` and
+  `double` field values. A non-numeric field value MUST NOT match.
+- A type mismatch is a non-match, never a runtime error (fail-open).
+- `case_insensitive` has no effect on `equals` or the comparison matchers; it
+  applies only to the string match types.
+- `negate` inverts the result, as with any matcher.
+
+**Authoring:** As with [AttributePath](#attributepath), implementations MUST
+accept both the canonical proto form and scalar shorthand when unmarshaling from
+YAML/JSON. For shorthand, the literal's type determines the `Value` variant:
+
+```yaml
+# Shorthand — type inferred from the literal
+- log_attribute: ["http.response.status_code"]
+  gte: 500                 # int
+- log_attribute: ["sampling.ratio"]
+  lt: 0.5                  # double
+- log_attribute: ["deprecated"]
+  equals: true             # bool
+
+# Canonical proto form
+- log_attribute: ["http.response.status_code"]
+  equals:
+    int_value: 200
+```
+
+Because bytes have no unambiguous scalar literal, a `bytes_value` matcher MUST
+use the canonical proto form.
+
+**Validation:** A string value supplied to `equals` (use `exact` instead), and a
+bool or bytes value supplied to a comparison matcher, are not representable in
+`Value`/`NumericValue` and MUST be rejected when unmarshaling. Per
+[Compilation Errors](#compilation-errors), a policy is also invalid if the typed
+value is left unset (an empty `Value`/`NumericValue`).
 
 #### Case Insensitivity
 
@@ -476,12 +558,17 @@ which performs implicit equality):
 
 | Type          | Value Type | Description                                                    |
 | ------------- | ---------- | -------------------------------------------------------------- |
-| `exact`       | string     | Field value MUST equal the specified string exactly.           |
-| `regex`       | string     | Field value MUST match the regular expression.                 |
+| `exact`       | string     | String field value MUST equal the specified string exactly.    |
+| `regex`       | string     | String field value MUST match the regular expression.          |
 | `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
-| `starts_with` | string     | Field value MUST begin with the specified literal string.      |
-| `ends_with`   | string     | Field value MUST end with the specified literal string.        |
-| `contains`    | string     | Field value MUST contain the specified literal substring.      |
+| `starts_with` | string     | String field value MUST begin with the specified literal string. |
+| `ends_with`   | string     | String field value MUST end with the specified literal string. |
+| `contains`    | string     | String field value MUST contain the specified literal substring. |
+| `equals`      | Value      | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `gt`          | NumericValue | Numeric field value MUST be greater than the value.          |
+| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value. |
+| `lt`          | NumericValue | Numeric field value MUST be less than the value.             |
+| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value. |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
@@ -599,12 +686,17 @@ A matcher MUST specify exactly one match type (except when using `span_kind` or
 
 | Type          | Value Type | Description                                                    |
 | ------------- | ---------- | -------------------------------------------------------------- |
-| `exact`       | string     | Field value MUST equal the specified string exactly.           |
-| `regex`       | string     | Field value MUST match the regular expression.                 |
+| `exact`       | string     | String field value MUST equal the specified string exactly.    |
+| `regex`       | string     | String field value MUST match the regular expression.          |
 | `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
-| `starts_with` | string     | Field value MUST begin with the specified literal string.      |
-| `ends_with`   | string     | Field value MUST end with the specified literal string.        |
-| `contains`    | string     | Field value MUST contain the specified literal substring.      |
+| `starts_with` | string     | String field value MUST begin with the specified literal string. |
+| `ends_with`   | string     | String field value MUST end with the specified literal string. |
+| `contains`    | string     | String field value MUST contain the specified literal substring. |
+| `equals`      | Value      | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `gt`          | NumericValue | Numeric field value MUST be greater than the value.          |
+| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value. |
+| `lt`          | NumericValue | Numeric field value MUST be less than the value.             |
+| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value. |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
@@ -990,6 +1082,32 @@ trace:
     - span_status: ERROR
   keep:
     percentage: 100.0
+```
+
+Example with typed equality and numeric comparison:
+
+```yaml
+id: drop-successful-request-logs
+name: Drop logs for successful HTTP responses
+log:
+  match:
+    # gte + lt match an integer attribute; the literals are ints, not strings
+    - log_attribute: ["http.response.status_code"]
+      gte: 200
+    - log_attribute: ["http.response.status_code"]
+      lt: 400
+  keep: none
+```
+
+```yaml
+id: drop-cache-hit-logs
+name: Drop logs flagged as cache hits
+log:
+  match:
+    # equals matches the boolean value directly
+    - log_attribute: ["cache.hit"]
+      equals: true
+  keep: none
 ```
 
 ## Conformance

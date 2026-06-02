@@ -50,3 +50,55 @@ message AttributePath {
   // Multiple elements traverse nested maps.
   repeated string path = 1;
 }
+
+// Value carries a typed, non-string scalar for the `equals` matcher. String
+// equality is expressed with the `exact` match type, so this message
+// intentionally has no string variant.
+//
+// `equals` matches when the field value has the same type and value as the set
+// variant. Integer and floating-point values are compared in a single numeric
+// domain (an int_value may match a double field with an equal numeric value and
+// vice versa). All other type pairings do not match.
+//
+// YAML/JSON Unmarshaling:
+//
+// Implementations MUST accept both the canonical proto form and scalar
+// shorthand. For shorthand, the literal's type selects the variant:
+//
+//   equals: true   ->  bool_value
+//   equals: 200    ->  int_value
+//   equals: 0.5    ->  double_value
+//
+// Because bytes have no unambiguous scalar literal, a bytes_value MUST use the
+// canonical proto form (e.g. `equals: { bytes_value: "<base64>" }`). A bare
+// string literal (e.g. `equals: "foo"`) MUST be rejected — use `exact` for
+// strings.
+message Value {
+  // Exactly one must be set.
+  oneof value {
+    bool bool_value = 1;
+    int64 int_value = 2;
+    double double_value = 3;
+    bytes bytes_value = 4;
+  }
+}
+
+// NumericValue carries a typed number for the comparison matchers (`gt`, `gte`,
+// `lt`, `lte`). It deliberately admits only int and double so that non-numeric
+// comparisons (against a bool or bytes) are unrepresentable in the schema rather
+// than rejected at compile time. int and double are compared in a single
+// numeric domain, and int_value preserves full 64-bit precision for large
+// integer fields (e.g. nanosecond timestamps) that a double cannot represent
+// exactly.
+//
+// YAML/JSON shorthand selects the variant from the literal's type:
+//
+//   gte: 500   ->  int_value
+//   lt: 0.5    ->  double_value
+message NumericValue {
+  // Exactly one must be set.
+  oneof value {
+    int64 int_value = 1;
+    double double_value = 2;
+  }
+}

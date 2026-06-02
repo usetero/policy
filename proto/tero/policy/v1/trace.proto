@@ -112,24 +112,43 @@ message TraceMatcher {
 
   // Match type. Exactly one must be set.
   // Note: For span_kind and span_status fields, only exists is valid (equality is implicit).
+  //
+  // The string match types (exact, regex, starts_with, ends_with, contains)
+  // operate only on string field values. To match non-string values, use the
+  // typed equals matcher or the numeric comparison matchers (gt, gte, lt, lte).
   oneof match {
-    // Exact string match
+    // Exact string match (string field values only)
     string exact = 10;
 
-    // Regular expression match
+    // Regular expression match (string field values only)
     string regex = 11;
 
     // Field existence check
     bool exists = 12;
 
-    // Literal prefix match
+    // Literal prefix match (string field values only)
     string starts_with = 13;
 
-    // Literal suffix match
+    // Literal suffix match (string field values only)
     string ends_with = 14;
 
-    // Literal substring match
+    // Literal substring match (string field values only)
     string contains = 15;
+
+    // Typed equality for non-string field values (bool, int, double, bytes)
+    Value equals = 22;
+
+    // Numeric greater-than comparison (int/double field values)
+    NumericValue gt = 23;
+
+    // Numeric greater-than-or-equal comparison (int/double field values)
+    NumericValue gte = 24;
+
+    // Numeric less-than comparison (int/double field values)
+    NumericValue lt = 25;
+
+    // Numeric less-than-or-equal comparison (int/double field values)
+    NumericValue lte = 26;
   }
 
   // If true, inverts the match result

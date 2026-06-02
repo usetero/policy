@@ -44,6 +44,10 @@ reasoning. You can generate atomic policies.
 - `drop-debug-metrics.yaml` - Drop metrics with debug prefix
 - `rate-limit-batch-job-logs.yaml` - Cap noisy batch logs to 100/s per job
 - `rate-limit-error-logs-1-per-5m.yaml` - Allow one repeated error log every 5 minutes per request
+- `drop-successful-request-logs.yaml` - Drop 2xx/3xx logs by numeric status code
+- `sample-fast-request-logs.yaml` - Sample sub-100ms requests by numeric duration
+- `drop-cache-hit-logs.yaml` - Drop logs whose boolean `cache.hit` is true
+- `drop-synthetic-metrics.yaml` - Drop datapoints whose boolean `synthetic` is true
 
 ```yaml
 id: drop-debug-logs
@@ -78,6 +82,41 @@ log:
   keep: "1/5m"
   sample_key:
     log_attribute: ["request_id"]
+```
+
+#### Typed and comparison matching
+
+The string match types (`exact`, `regex`, `contains`, ...) only see string
+values. To match numbers and booleans, use the typed `equals` matcher or the
+numeric comparators `gt` / `gte` / `lt` / `lte`. The value's type is inferred
+from the literal — `500` is an int, `0.1` is a double, `true` is a bool.
+
+Keep only error logs by dropping the successful status-code range:
+
+```yaml
+id: drop-successful-request-logs
+name: Drop logs for successful HTTP responses
+
+log:
+  match:
+    - log_attribute: ["http.response.status_code"]
+      gte: 200
+    - log_attribute: ["http.response.status_code"]
+      lt: 400
+  keep: none
+```
+
+Drop cache-hit logs by matching the boolean attribute directly:
+
+```yaml
+id: drop-cache-hit-logs
+name: Drop logs flagged as cache hits
+
+log:
+  match:
+    - log_attribute: ["cache.hit"]
+      equals: true
+  keep: none
 ```
 
 ### Generated (per log event)
