@@ -78,6 +78,10 @@ enum LogField {
   // Log record fields
   LOG_FIELD_BODY = 1;
   LOG_FIELD_SEVERITY_TEXT = 2;
+  // trace_id and span_id are bytes. They are authored as lowercase hex and
+  // matched as raw bytes (exact/equals), or as their hex rendering for string
+  // match types. See the Value message and the spec's
+  // "Bytes and Identifier Fields" section.
   LOG_FIELD_TRACE_ID = 3;
   LOG_FIELD_SPAN_ID = 4;
   LOG_FIELD_EVENT_NAME = 5;

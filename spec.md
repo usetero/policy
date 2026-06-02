@@ -175,15 +175,15 @@ output.
 
 ##### LogField Enum Values
 
-| Value                           | Description                                          |
-| ------------------------------- | ---------------------------------------------------- |
-| `LOG_FIELD_BODY`                | The log message body.                                |
-| `LOG_FIELD_SEVERITY_TEXT`       | Severity as string (e.g., "DEBUG", "INFO", "ERROR"). |
-| `LOG_FIELD_TRACE_ID`            | Associated trace identifier.                         |
-| `LOG_FIELD_SPAN_ID`             | Associated span identifier.                          |
-| `LOG_FIELD_EVENT_NAME`          | Event name for event logs.                           |
-| `LOG_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL.                                 |
-| `LOG_FIELD_SCOPE_SCHEMA_URL`    | Scope schema URL.                                    |
+| Value                           | Type   | Description                                          |
+| ------------------------------- | ------ | ---------------------------------------------------- |
+| `LOG_FIELD_BODY`                | string | The log message body.                                |
+| `LOG_FIELD_SEVERITY_TEXT`       | string | Severity as string (e.g., "DEBUG", "INFO", "ERROR"). |
+| `LOG_FIELD_TRACE_ID`            | bytes  | Associated trace identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `LOG_FIELD_SPAN_ID`             | bytes  | Associated span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `LOG_FIELD_EVENT_NAME`          | string | Event name for event logs.                           |
+| `LOG_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.                                 |
+| `LOG_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.                                    |
 
 #### Match Types
 
@@ -210,9 +210,11 @@ consistency.
 #### Typed and Comparison Matching
 
 The `exact`, `regex`, `starts_with`, `ends_with`, and `contains` match types
-operate only on **string** field values; a non-string field value never matches
-them. To match non-string values, use the typed `equals` matcher or the numeric
-comparison matchers `gt`, `gte`, `lt`, and `lte`.
+operate on the field's **string** value. For most non-string values (bool, int,
+double) they never match; use the typed `equals` matcher or the numeric
+comparison matchers `gt`, `gte`, `lt`, and `lte` instead. Bytes-typed fields are
+the exception and have dedicated handling — see
+[Bytes and Identifier Fields](#bytes-and-identifier-fields).
 
 These matchers carry a typed value rather than a string. `equals` uses `Value`,
 which holds any non-string scalar; the comparison matchers use `NumericValue`,
@@ -224,7 +226,8 @@ Value {
   bool_value:   bool
   int_value:    int64
   double_value: double
-  bytes_value:  bytes
+  bytes_value:  bytes    // raw bytes (base64 in JSON)
+  hex_value:    string   // bytes as a hex string (readable; see below)
 }
 
 NumericValue {
@@ -275,14 +278,75 @@ YAML/JSON. For shorthand, the literal's type determines the `Value` variant:
     int_value: 200
 ```
 
-Because bytes have no unambiguous scalar literal, a `bytes_value` matcher MUST
-use the canonical proto form.
+Bytes are supplied either as the proto-native base64 `bytes_value` or, more
+readably, as a hex string in `hex_value`; see
+[Bytes and Identifier Fields](#bytes-and-identifier-fields).
 
 **Validation:** A string value supplied to `equals` (use `exact` instead), and a
 bool or bytes value supplied to a comparison matcher, are not representable in
 `Value`/`NumericValue` and MUST be rejected when unmarshaling. Per
-[Compilation Errors](#compilation-errors), a policy is also invalid if the typed
-value is left unset (an empty `Value`/`NumericValue`).
+[Compilation Errors](#compilation-errors), a policy is also invalid if a
+`hex_value` is not valid hexadecimal (non-hex characters or an odd number of
+digits), or if the typed value is left unset (an empty `Value`/`NumericValue`).
+
+#### Bytes and Identifier Fields
+
+Some fields are byte sequences rather than strings. The well-known identifier
+fields — `*_TRACE_ID`, `*_SPAN_ID`, and `*_PARENT_SPAN_ID` — are `bytes`, as is
+any telemetry attribute whose value is a byte sequence. Each well-known field's
+type is given in its enum table. The `link_trace_id` selector also carries a
+trace id and follows the same rules.
+
+**Canonical encoding.** Bytes are authored and rendered as **lowercase
+hexadecimal** with an even number of digits. Hex is the canonical human encoding
+because it is how identifiers appear throughout OpenTelemetry (for example, the
+W3C `traceparent` header). Implementations MUST decode the hex literal to raw
+bytes **once, at policy-compile time**, and store the decoded bytes; the bytes —
+never the hex text — are what appear in the canonical protobuf form, so the
+encoding cost is paid once per policy rather than once per telemetry record.
+
+**Authoring.** A bytes-typed field is matched as follows:
+
+```yaml
+# Well-known identifier field: a plain string literal is decoded as hex,
+# because the field's declared type is bytes (no decoration needed).
+- trace_field: TRACE_FIELD_SPAN_ID
+  exact: "8a3f0e1234567890"
+
+# Arbitrary bytes attribute: the type is not known from the field, so the bytes
+# value is supplied explicitly via equals.
+- log_attribute: ["raw.token"]
+  equals:
+    hex_value: "deadbeef"      # hex string (readable)
+- log_attribute: ["raw.token"]
+  equals:
+    bytes_value: "3q2+7w=="    # proto-native base64
+```
+
+`hex_value` and `bytes_value` are two encodings of the same bytes; an
+implementation decodes whichever is set to raw bytes at compile time, so they
+are interchangeable.
+
+**Matching semantics on a bytes-typed field:**
+
+- `exact` and `equals` decode the hex (or base64) literal once and compare
+  `bytes == bytes`. Hex input is case-insensitive; the comparison is over raw
+  bytes, so length and value are checked exactly.
+- `exists` is unchanged.
+- `regex`, `starts_with`, `ends_with`, and `contains` treat the field as a
+  string, matching against its canonical lowercase-hex rendering. This keeps
+  identifier prefix and substring matching deterministic.
+- The numeric comparison matchers (`gt`, `gte`, `lt`, `lte`) do not apply to
+  bytes.
+
+**Type coercion and performance.** Implementations SHOULD always coerce between a
+field's declared type and the matcher literal — for example, decoding a hex
+string to bytes for a bytes-typed field — so a correctly authored policy matches
+regardless of how the literal was written. For performance, policies SHOULD also
+include a string match type where practical: implementations commonly optimize
+string and regular-expression matching with a dedicated multi-pattern engine, and
+a string matcher lets that fast path pre-filter records before a typed comparison
+runs.
 
 #### Case Insensitivity
 
@@ -533,13 +597,13 @@ See [AttributePath](#attributepath) for path syntax.
 
 ##### MetricField Enum Values
 
-| Value                              | Description             |
-| ---------------------------------- | ----------------------- |
-| `METRIC_FIELD_NAME`                | The metric name.        |
-| `METRIC_FIELD_DESCRIPTION`         | The metric description. |
-| `METRIC_FIELD_UNIT`                | The metric unit.        |
-| `METRIC_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL.    |
-| `METRIC_FIELD_SCOPE_SCHEMA_URL`    | Scope schema URL.       |
+| Value                              | Type   | Description             |
+| ---------------------------------- | ------ | ----------------------- |
+| `METRIC_FIELD_NAME`                | string | The metric name.        |
+| `METRIC_FIELD_DESCRIPTION`         | string | The metric description. |
+| `METRIC_FIELD_UNIT`                | string | The metric unit.        |
+| `METRIC_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.    |
+| `METRIC_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.       |
 
 ##### MetricType Enum Values
 
@@ -643,23 +707,23 @@ A matcher MUST specify exactly one field selector:
 | `span_status`        | SpanStatusCode enum | Span status code (implicit equality match).      |
 | `event_name`         | string              | Event name (matches if span contains the event). |
 | `event_attribute`    | AttributePath       | Event attribute path (matches if present).       |
-| `link_trace_id`      | string              | Link trace ID (matches if span has link).        |
+| `link_trace_id`      | string (hex)        | Link trace ID, authored as hex and matched as bytes (matches if span has link). See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
 
 See [AttributePath](#attributepath) for path syntax.
 
 ##### TraceField Enum Values
 
-| Value                             | Description                    |
-| --------------------------------- | ------------------------------ |
-| `TRACE_FIELD_NAME`                | The span name.                 |
-| `TRACE_FIELD_TRACE_ID`            | The trace identifier.          |
-| `TRACE_FIELD_SPAN_ID`             | The span identifier.           |
-| `TRACE_FIELD_PARENT_SPAN_ID`      | The parent span identifier.    |
-| `TRACE_FIELD_TRACE_STATE`         | The W3C tracestate.            |
-| `TRACE_FIELD_RESOURCE_SCHEMA_URL` | Resource schema URL.           |
-| `TRACE_FIELD_SCOPE_SCHEMA_URL`    | Scope schema URL.              |
-| `TRACE_FIELD_SCOPE_NAME`          | Instrumentation scope name.    |
-| `TRACE_FIELD_SCOPE_VERSION`       | Instrumentation scope version. |
+| Value                             | Type   | Description                    |
+| --------------------------------- | ------ | ------------------------------ |
+| `TRACE_FIELD_NAME`                | string | The span name.                 |
+| `TRACE_FIELD_TRACE_ID`            | bytes  | The trace identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `TRACE_FIELD_SPAN_ID`             | bytes  | The span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `TRACE_FIELD_PARENT_SPAN_ID`      | bytes  | The parent span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| `TRACE_FIELD_TRACE_STATE`         | string | The W3C tracestate.            |
+| `TRACE_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.           |
+| `TRACE_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.              |
+| `TRACE_FIELD_SCOPE_NAME`          | string | Instrumentation scope name.    |
+| `TRACE_FIELD_SCOPE_VERSION`       | string | Instrumentation scope version. |
 
 ##### SpanKind Enum Values
 
@@ -875,6 +939,7 @@ A policy is invalid if any of the following hold:
 | An attribute selector has an empty path.                      | `log_attribute: []`                                                                |
 | A matcher specifies no match condition where one is required. | empty `match` oneof                                                                |
 | A `regex` matcher or `redact` pattern is not valid RE2.       | `regex: "([a-z"`                                                                   |
+| A `hex_value` is not valid hexadecimal.                       | `hex_value: "xyz"`, odd-length hex                                                 |
 | A `keep` value is malformed.                                  | `keep: "banana"`, fractional rate-limit values                                     |
 | A trace sampling configuration is invalid.                    | `percentage` out of range, unknown `mode`                                          |
 | A transform `rename` has an empty `to` target.                | `rename: { from: ..., to: "" }`                                                    |
@@ -1108,6 +1173,20 @@ log:
     - log_attribute: ["cache.hit"]
       equals: true
   keep: none
+```
+
+Example matching a bytes identifier field by hex:
+
+```yaml
+id: keep-spans-for-trace
+name: Keep all spans for one trace
+trace:
+  match:
+    # trace_id is bytes; the hex literal is decoded once and compared as bytes
+    - trace_field: TRACE_FIELD_TRACE_ID
+      exact: "4bf92f3577b34da6a3ce929d0e0e4736"
+  keep:
+    percentage: 100.0
 ```
 
 ## Conformance

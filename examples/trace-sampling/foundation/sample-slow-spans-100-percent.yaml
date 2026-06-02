@@ -1,12 +1,14 @@
 id: sample-slow-spans-100-percent
 name: Keep all slow spans
 description: >
-  Retains spans with latency annotations for performance debugging.
-  Matches spans that have been marked as slow by instrumentation.
+  Retains spans explicitly flagged as slow by instrumentation. The slow
+  attribute is a boolean, matched by type with equals: true rather than as the
+  string "true". To match on a numeric latency threshold instead, see
+  keep-slow-spans-by-duration.yaml.
 
 trace:
   match:
     - span_attribute: ["slow"]
-      exact: "true"
+      equals: true
   keep:
     percentage: 100.0

@@ -31,6 +31,10 @@ enum TraceField {
 
   // Span fields
   TRACE_FIELD_NAME = 1;
+  // trace_id, span_id, and parent_span_id are bytes. They are authored as
+  // lowercase hex and matched as raw bytes (exact/equals), or as their hex
+  // rendering for string match types. See the Value message and the spec's
+  // "Bytes and Identifier Fields" section.
   TRACE_FIELD_TRACE_ID = 2;
   TRACE_FIELD_SPAN_ID = 3;
   TRACE_FIELD_PARENT_SPAN_ID = 4;
@@ -106,7 +110,9 @@ message TraceMatcher {
     // Event attribute matcher (matches if span contains an event with this attribute)
     AttributePath event_attribute = 8;
 
-    // Link trace ID matcher (matches if span has a link to this trace)
+    // Link trace ID matcher (matches if span has a link to this trace).
+    // Authored as lowercase hex and decoded to bytes at policy-compile time,
+    // then compared against link trace ids as raw bytes.
     string link_trace_id = 9;
   }
 
