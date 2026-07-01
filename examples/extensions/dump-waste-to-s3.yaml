@@ -1,0 +1,20 @@
+id: dump-waste-to-s3
+name: Dump sampled-out checkout errors to S3
+
+log:
+  match:
+    - log_field: body
+      regex: "[error|failed].*$"
+    - resource_attribute: ["service.name"]
+      regex: checkout-api
+  keep: ".01%"
+
+# The destination is pre-configured (locally or broadcast via
+# SyncResponse.extension_configs) and referenced here by kind + name.
+extensions:
+  - type: com.usetero/s3-dump
+    version: 1.0.0
+    config:
+      target:
+        kind: s3
+        name: eu-bucket

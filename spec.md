@@ -62,6 +62,7 @@ A policy MAY contain the following fields:
 | `created_at_unix_nano`  | fixed64    | -       | Creation timestamp in Unix epoch nanoseconds.          |
 | `modified_at_unix_nano` | fixed64    | -       | Last modification timestamp in Unix epoch nanoseconds. |
 | `labels`                | KeyValue[] | empty   | Metadata labels for routing and organization.          |
+| `extensions`            | Extension[] | empty  | Implementation-specific behavior. See [Extensions](#extensions). |
 
 ### Target
 
@@ -1195,6 +1196,113 @@ trace:
     percentage: 100.0
 ```
 
+## Extensions
+
+Extensions attach optional, implementation-specific behavior to a policy without
+changing core semantics. Core matching and keep/transform decisions are
+unaffected: the engine matches telemetry using the policy's target
+(`log`/`metric`/`trace`), then hands matched records to the handler registered
+for each extension `type`. A common use is routing matched telemetry to an
+external destination (for example, dumping sampled-out records to S3).
+
+The extension mechanism is fully generic. Every extension payload is opaque to
+the policy engine — it routes matched records to the handler registered for the
+`type` and never interprets the payload. This lets any implementation define its
+own extension types without changing the core schema.
+
+### Declaring an Extension
+
+A policy declares one or more extensions:
+
+| Field     | Type   | Description                                                    |
+| --------- | ------ | ------------------------------------------------------------- |
+| `type`    | string | Reverse-FQDN extension identifier (e.g. `com.usetero/s3-dump`). |
+| `version` | string | Extension schema version (semver).                            |
+| `config`  | object | Opaque, type-defined configuration, parsed by the handler.    |
+
+```yaml
+extensions:
+  - type: com.usetero/s3-dump
+    version: 1.0.0
+    config: { ... } # defined entirely by the extension type
+```
+
+A client advertises which extension types it supports — and per type, opaque
+type-defined capability descriptors — via `ClientMetadata.supported_extensions`
+(`type`, `min_version`, and a list of opaque `config` entries). A provider MAY
+also broadcast opaque type-defined configuration to clients via
+`SyncResponse.extension_configs`. Both are keyed by extension `type`; their
+contents are defined by the extension, not this specification.
+
+### Extension Input
+
+An extension receives every record its policy **matched** (passed all matchers),
+paired with the policy's `keep` verdict for that record — `kept`, `sampled_out`,
+or `dropped`. Records the policy did **not** match are never delivered to its
+extensions.
+
+Matching, not keep, is the filter. The keep verdict is a label: it tells the
+extension what happened to the record on the main pipeline but does not gate
+delivery. A `keep: none` (drop) policy therefore delivers all of its matched
+records to the extension, even though every one of them is dropped downstream.
+This is what makes "dump waste" work — `com.usetero/s3-dump` on a `keep: .01%`
+policy receives all matched records and archives the ~99.99% that were
+`sampled_out`.
+
+The extension is a side-channel off the matched set. It MUST NOT change the
+`keep`/`transform` outcome applied to the surviving pipeline. The record is
+delivered as matched (before this policy's `transform`); post-transform
+delivery, if needed, is defined by the extension `type`.
+
+### Rules
+
+1. `extensions` is OPTIONAL. A policy MAY declare multiple extensions (for
+   example, to dump to both disk and S3).
+2. Each extension MUST specify a `type`, a `version`, and a `config`. The
+   `config` is opaque to the policy engine and defined by the extension `type`.
+3. An extension MUST NOT redefine or alter core policy semantics (`match`,
+   `keep`, `transform`); it only observes the matched set (see
+   [Extension Input](#extension-input)) and acts on it out of band.
+4. Implementations MUST explicitly document which extension `type`/`version`
+   pairs they support.
+5. If a policy declares an extension whose `type` is unsupported (or whose
+   `config` cannot be satisfied) and that extension is required for the policy's
+   intended behavior, the implementation SHOULD reject the policy load with a
+   clear error reported via `PolicySyncStatus.errors`. Otherwise the extension
+   is skipped (fail-open) and core matching/keep/transform still applies.
+6. Extension behavior SHOULD execute off the hot path using non-blocking
+   operations so core telemetry processing is not delayed.
+
+### tero Extension: `com.usetero/s3-dump`
+
+This is a concrete extension type defined by tero, illustrating the generic
+mechanism above. It routes matched telemetry to a pre-configured **destination**
+(an "extension target") so credentials and connection details stay out of
+policies and one destination can be reused across many policies.
+
+A target is a named destination — `kind` (e.g. `s3`), `name` (unique within a
+kind, e.g. `eu-bucket`), and opaque kind-defined `config` (region, bucket,
+prefix). It is identified by the `(kind, name)` pair and becomes available to a
+client either by local configuration or by broadcast via
+`SyncResponse.extension_configs`.
+
+The policy's extension `config` carries only a reference — `{ kind, name }` —
+to a target:
+
+```yaml
+extensions:
+  - type: com.usetero/s3-dump
+    version: 1.0.0
+    config:
+      target:
+        kind: s3
+        name: eu-bucket
+```
+
+A client advertises the targets it can reach as the capability descriptors of
+`ClientMetadata.supported_extensions` (each descriptor is a `{ kind, name }`
+reference), so a provider only sends policies pointing at reachable targets.
+
 ## Conformance
 
 An implementation conforms to this specification if it:
@@ -1209,6 +1317,8 @@ An implementation conforms to this specification if it:
 8. Validates policies per the [compilation error](#compilation-errors) rules,
    keeps invalid policies inert without aborting valid policies in the same
    batch, and reports compilation errors via `PolicySyncStatus.errors`.
+9. Handles [extensions](#extensions) per the stated rules for any extension
+   `type` it supports, and documents which `type`/`version` pairs it supports.
 
 Implementations MAY support a subset of features (e.g., omit rate limiting) but
 MUST clearly document unsupported features.

@@ -4,6 +4,7 @@ package tero.policy.v1;
 
 import "google/api/annotations.proto";
 import "opentelemetry/proto/common/v1/common.proto";
+import "tero/policy/v1/extension.proto";
 import "tero/policy/v1/log.proto";
 import "tero/policy/v1/metric.proto";
 import "tero/policy/v1/trace.proto";
@@ -49,6 +50,10 @@ message Policy {
     MetricTarget metric = 11;
     TraceTarget trace = 12;
   }
+
+  // Implementation-specific extensions attached to this policy. Each extension
+  // references a pre-configured ExtensionTarget by (kind, name).
+  repeated Extension extensions = 20;
 }
 
 // =============================================================================
@@ -83,6 +88,11 @@ message ClientMetadata {
   // * service.namespace
   // * service.version
   repeated opentelemetry.proto.common.v1.KeyValue resource_attributes = 3;
+
+  // Extension types this client supports, and the target kinds/names it can
+  // route each type to. Providers SHOULD only send policies whose extensions
+  // reference targets advertised here.
+  repeated ExtensionCapability supported_extensions = 4;
 }
 
 // TransformStageStatus reports hits and misses for a single transform stage.
@@ -160,6 +170,13 @@ message SyncResponse {
 
   // Error message if sync failed
   string error_message = 6;
+
+  // Opaque, type-defined extension configuration broadcast to the client, keyed
+  // by extension type. The policy engine does not interpret it; each extension
+  // handler parses its own entries. For tero's s3-dump this carries the
+  // available ExtensionTargets. A client merges these with any locally
+  // configured extension state.
+  repeated ExtensionConfig extension_configs = 7;
 }
 
 // =============================================================================
