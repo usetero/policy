@@ -4,7 +4,7 @@ name: Drop session heartbeat logs
 log:
   match:
     - resource_attribute: ["service.name"]
-      exact: user-service
+      equals: user-service
     - log_field: body
       regex: "session heartbeat"
   keep: none

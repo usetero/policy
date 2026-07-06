@@ -7,8 +7,8 @@ description: >
 trace:
   match:
     - resource_attribute: ["service.name"]
-      exact: payment-api
+      equals: payment-api
     - trace_field: name
-      exact: PaymentGatewayHeartbeat
+      equals: PaymentGatewayHeartbeat
   keep:
     percentage: 0.0

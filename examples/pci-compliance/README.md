@@ -60,7 +60,7 @@ log:
     - resource_attribute: ["service.name"]
       regex: "^payment-"
     - log_field: severity_text
-      exact: DEBUG
+      equals: DEBUG
   keep: none
 ```
 
@@ -89,7 +89,7 @@ name: Redact transaction logged events
 log:
   match:
     - resource_attribute: ["service.name"]
-      exact: payment-api
+      equals: payment-api
     - log_field: body
       regex: "transaction logged"
   transform:

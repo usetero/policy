@@ -192,13 +192,13 @@ A matcher MUST specify exactly one match type:
 
 | Type          | Value Type   | Description                                                                                                             |
 | ------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `exact`       | string       | String field value MUST equal the specified string exactly.                                                             |
+| `exact`       | string       | Deprecated string equality. Use `equals.string_value`; `exact` will move to reserved in a future version.               |
 | `regex`       | string       | String field value MUST match the regular expression.                                                                   |
 | `exists`      | boolean      | If `true`, field MUST exist. If `false`, field MUST NOT exist.                                                          |
 | `starts_with` | string       | String field value MUST begin with the specified literal string.                                                        |
 | `ends_with`   | string       | String field value MUST end with the specified literal string.                                                          |
 | `contains`    | string       | String field value MUST contain the specified literal substring.                                                        |
-| `equals`      | Value        | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `equals`      | Value        | Field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching).            |
 | `gt`          | NumericValue | Numeric field value MUST be greater than the value.                                                                     |
 | `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value.                                                         |
 | `lt`          | NumericValue | Numeric field value MUST be less than the value.                                                                        |
@@ -211,15 +211,18 @@ consistency.
 #### Typed and Comparison Matching
 
 The `exact`, `regex`, `starts_with`, `ends_with`, and `contains` match types
-operate on the field's **string** value. For most non-string values (bool, int,
-double) they never match; use the typed `equals` matcher or the numeric
-comparison matchers `gt`, `gte`, `lt`, and `lte` instead. Bytes-typed fields are
-the exception and have dedicated handling — see
+operate on the field's **string** value. For non-string values they never match;
+use the typed `equals` matcher or the numeric comparison matchers `gt`, `gte`,
+`lt`, and `lte` instead. Bytes-typed fields have dedicated handling — see
 [Bytes and Identifier Fields](#bytes-and-identifier-fields).
 
-These matchers carry a typed value rather than a string. `equals` uses `Value`,
-which holds any non-string scalar; the comparison matchers use `NumericValue`,
-which holds only a number:
+`exact` is deprecated. It remains in the wire format for progressive migration,
+but new policies SHOULD use `equals` with a string value. The `exact` field will
+move to reserved in a future version after existing wire-format users migrate.
+
+Equality and comparison matchers carry typed values. `equals` uses `Value`,
+which holds any scalar; the comparison matchers use `NumericValue`, which holds
+only a number:
 
 ```
 Value {
@@ -229,6 +232,7 @@ Value {
   double_value: double
   bytes_value:  bytes    // raw bytes (base64 in JSON)
   hex_value:    string   // bytes as a hex string (readable; see below)
+  string_value: string
 }
 
 NumericValue {
@@ -241,29 +245,24 @@ NumericValue {
 Two distinct types are used deliberately: because the comparison matchers take a
 `NumericValue`, comparing against a non-numeric value (a bool or bytes) is
 unrepresentable in the schema rather than something that must be rejected during
-compilation. `Value` has no string variant for the same reason — string equality
-is expressed with `exact`. `int_value` preserves full 64-bit precision for large
-integer fields (for example, nanosecond timestamps) that a `double` cannot
-represent exactly.
-
-> **Future direction:** `exact` is expected to be deprecated. Once `Value` gains
-> a string variant, all equality — string and non-string — will be expressed
-> through a single `equals` matcher, and `exact` will be retained only for
-> backward compatibility. New policies SHOULD treat `exact` and `equals` as the
-> same concept differing only by the value's type.
+compilation. `int_value` preserves full 64-bit precision for large integer
+fields (for example, nanosecond timestamps) that a `double` cannot represent
+exactly.
 
 **Semantics:**
 
 - `equals` matches if and only if the field value has the same type and value as
-  the supplied `Value`. Integer and floating-point values are compared in a
-  single numeric domain, so an `int_value` matcher MAY match a `double` field
-  with an equal numeric value and vice versa. All other type pairings (for
-  example, an `int_value` matcher against a string field) MUST NOT match.
+  the supplied `Value`. `exact` is equivalent to `equals.string_value` for
+  compatibility. Integer and floating-point values are compared in a single
+  numeric domain, so an `int_value` matcher MAY match a `double` field with an
+  equal numeric value and vice versa. All other type pairings (for example, an
+  `int_value` matcher against a string field) MUST NOT match.
 - `gt`, `gte`, `lt`, and `lte` perform numeric comparison against `int` and
   `double` field values. A non-numeric field value MUST NOT match.
 - A type mismatch is a non-match, never a runtime error (fail-open).
-- `case_insensitive` has no effect on `equals` or the comparison matchers; it
-  applies only to the string match types.
+- `case_insensitive` applies to `exact`, `equals.string_value`, and the string
+  pattern match types. It has no effect on other `equals` variants or the
+  comparison matchers.
 - `negate` inverts the result, as with any matcher.
 
 **Authoring:** As with [AttributePath](#attributepath), implementations MUST
@@ -278,6 +277,8 @@ YAML/JSON. For shorthand, the literal's type determines the `Value` variant:
   lt: 0.5 # double
 - log_attribute: ["deprecated"]
   equals: true # bool
+- resource_attribute: ["service.name"]
+  equals: checkout-api # string
 
 # Canonical proto form
 - log_attribute: ["http.response.status_code"]
@@ -289,10 +290,9 @@ Bytes are supplied either as the proto-native base64 `bytes_value` or, more
 readably, as a hex string in `hex_value`; see
 [Bytes and Identifier Fields](#bytes-and-identifier-fields).
 
-**Validation:** A string value supplied to `equals` (use `exact` instead), and a
-bool or bytes value supplied to a comparison matcher, are not representable in
-`Value`/`NumericValue` and MUST be rejected when unmarshaling. Per
-[Compilation Errors](#compilation-errors), a policy is also invalid if a
+**Validation:** A bool, string, or bytes value supplied to a comparison matcher
+is not representable in `NumericValue` and MUST be rejected when unmarshaling.
+Per [Compilation Errors](#compilation-errors), a policy is also invalid if a
 `hex_value` is not valid hexadecimal (non-hex characters or an odd number of
 digits), or if the typed value is left unset (an empty `Value`/`NumericValue`).
 
@@ -315,10 +315,10 @@ encoding cost is paid once per policy rather than once per telemetry record.
 **Authoring.** A bytes-typed field is matched as follows:
 
 ```yaml
-# Well-known identifier field: a plain string literal is decoded as hex,
-# because the field's declared type is bytes (no decoration needed).
+# Well-known identifier field: hex_value is decoded once and compared as bytes.
 - trace_field: TRACE_FIELD_SPAN_ID
-  exact: "8a3f0e1234567890"
+  equals:
+    hex_value: "8a3f0e1234567890"
 
 # Arbitrary bytes attribute: the type is not known from the field, so the bytes
 # value is supplied explicitly via equals.
@@ -336,9 +336,11 @@ are interchangeable.
 
 **Matching semantics on a bytes-typed field:**
 
-- `exact` and `equals` decode the hex (or base64) literal once and compare
-  `bytes == bytes`. Hex input is case-insensitive; the comparison is over raw
-  bytes, so length and value are checked exactly.
+- `equals.bytes_value` and `equals.hex_value` decode the literal once and
+  compare `bytes == bytes`. Hex input is case-insensitive; the comparison is
+  over raw bytes, so length and value are checked exactly. The deprecated
+  `exact` matcher MAY still be accepted for well-known bytes fields during
+  migration, but new policies SHOULD use `equals.hex_value`.
 - `exists` is unchanged.
 - `regex`, `starts_with`, `ends_with`, and `contains` treat the field as a
   string, matching against its canonical lowercase-hex rendering. This keeps
@@ -357,8 +359,8 @@ comparison runs.
 
 #### Case Insensitivity
 
-If `case_insensitive` is `true`, the match is performed without regard to case.
-This applies to all match types including `exact`, `regex`, `starts_with`,
+If `case_insensitive` is `true`, string matching is performed without regard to
+case. This applies to `exact`, `equals.string_value`, `regex`, `starts_with`,
 `ends_with`, and `contains`.
 
 #### Negation
@@ -629,13 +631,13 @@ which performs implicit equality):
 
 | Type          | Value Type   | Description                                                                                                             |
 | ------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `exact`       | string       | String field value MUST equal the specified string exactly.                                                             |
+| `exact`       | string       | Deprecated string equality. Use `equals.string_value`; `exact` will move to reserved in a future version.               |
 | `regex`       | string       | String field value MUST match the regular expression.                                                                   |
 | `exists`      | boolean      | If `true`, field MUST exist. If `false`, field MUST NOT exist.                                                          |
 | `starts_with` | string       | String field value MUST begin with the specified literal string.                                                        |
 | `ends_with`   | string       | String field value MUST end with the specified literal string.                                                          |
 | `contains`    | string       | String field value MUST contain the specified literal substring.                                                        |
-| `equals`      | Value        | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `equals`      | Value        | Field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching).            |
 | `gt`          | NumericValue | Numeric field value MUST be greater than the value.                                                                     |
 | `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value.                                                         |
 | `lt`          | NumericValue | Numeric field value MUST be less than the value.                                                                        |
@@ -647,8 +649,8 @@ consistency.
 
 #### Case Insensitivity
 
-If `case_insensitive` is `true`, the match is performed without regard to case.
-This applies to all match types including `exact`, `regex`, `starts_with`,
+If `case_insensitive` is `true`, string matching is performed without regard to
+case. This applies to `exact`, `equals.string_value`, `regex`, `starts_with`,
 `ends_with`, and `contains`.
 
 #### Negation
@@ -757,13 +759,13 @@ A matcher MUST specify exactly one match type (except when using `span_kind` or
 
 | Type          | Value Type   | Description                                                                                                             |
 | ------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `exact`       | string       | String field value MUST equal the specified string exactly.                                                             |
+| `exact`       | string       | Deprecated string equality. Use `equals.string_value`; `exact` will move to reserved in a future version.               |
 | `regex`       | string       | String field value MUST match the regular expression.                                                                   |
 | `exists`      | boolean      | If `true`, field MUST exist. If `false`, field MUST NOT exist.                                                          |
 | `starts_with` | string       | String field value MUST begin with the specified literal string.                                                        |
 | `ends_with`   | string       | String field value MUST end with the specified literal string.                                                          |
 | `contains`    | string       | String field value MUST contain the specified literal substring.                                                        |
-| `equals`      | Value        | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `equals`      | Value        | Field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching).            |
 | `gt`          | NumericValue | Numeric field value MUST be greater than the value.                                                                     |
 | `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value.                                                         |
 | `lt`          | NumericValue | Numeric field value MUST be less than the value.                                                                        |
@@ -775,8 +777,8 @@ consistency.
 
 #### Case Insensitivity
 
-If `case_insensitive` is `true`, the match is performed without regard to case.
-This applies to all match types including `exact`, `regex`, `starts_with`,
+If `case_insensitive` is `true`, string matching is performed without regard to
+case. This applies to `exact`, `equals.string_value`, `regex`, `starts_with`,
 `ends_with`, and `contains`.
 
 #### Negation
@@ -1081,9 +1083,9 @@ enabled: true
 log:
   match:
     - resource_attribute: ["service.name"]
-      exact: checkout-api
+      equals: checkout-api
     - log_field: LOG_FIELD_SEVERITY_TEXT
-      exact: DEBUG
+      equals: DEBUG
   keep: none
 ```
 
@@ -1095,7 +1097,7 @@ name: Redact PII from payment service
 log:
   match:
     - resource_attribute: ["service.name"]
-      exact: payment-api
+      equals: payment-api
   transform:
     remove:
       - log_attribute: ["user.password"]
@@ -1196,9 +1198,10 @@ id: keep-spans-for-trace
 name: Keep all spans for one trace
 trace:
   match:
-    # trace_id is bytes; the hex literal is decoded once and compared as bytes
+    # trace_id is bytes; hex_value is decoded once and compared as bytes
     - trace_field: TRACE_FIELD_TRACE_ID
-      exact: "4bf92f3577b34da6a3ce929d0e0e4736"
+      equals:
+        hex_value: "4bf92f3577b34da6a3ce929d0e0e4736"
   keep:
     percentage: 100.0
 ```

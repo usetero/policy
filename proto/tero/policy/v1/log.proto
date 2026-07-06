@@ -79,8 +79,8 @@ enum LogField {
   LOG_FIELD_BODY = 1;
   LOG_FIELD_SEVERITY_TEXT = 2;
   // trace_id and span_id are bytes. They are authored as lowercase hex and
-  // matched as raw bytes (exact/equals), or as their hex rendering for string
-  // match types. See the Value message and the spec's
+  // matched as raw bytes with equals.hex_value, or as their hex rendering for
+  // string pattern match types. See the Value message and the spec's
   // "Bytes and Identifier Fields" section.
   LOG_FIELD_TRACE_ID = 3;
   LOG_FIELD_SPAN_ID = 4;
@@ -124,12 +124,17 @@ message LogMatcher {
 
   // Match type. Exactly one must be set.
   //
-  // The string match types (exact, regex, starts_with, ends_with, contains)
-  // operate only on string field values. To match non-string values, use the
-  // typed equals matcher or the numeric comparison matchers (gt, gte, lt, lte).
+  // Use the typed equals matcher for equality. The exact field is deprecated and
+  // will move to reserved in a future version after wire-format users migrate to
+  // equals.string_value.
+  //
+  // The string pattern match types (regex, starts_with, ends_with, contains)
+  // operate only on string field values. Use the numeric comparison matchers
+  // (gt, gte, lt, lte) for ranges.
   oneof match {
-    // Exact string match (string field values only)
-    string exact = 10;
+    // Deprecated: use equals.string_value instead. This field will move to
+    // reserved in a future version.
+    string exact = 10 [deprecated = true];
 
     // Regular expression match (string field values only)
     string regex = 11;
@@ -146,7 +151,7 @@ message LogMatcher {
     // Literal substring match (string field values only)
     string contains = 15;
 
-    // Typed equality for non-string field values (bool, int, double, bytes)
+    // Typed equality for string, bool, int, double, or bytes field values.
     Value equals = 22;
 
     // Numeric greater-than comparison (int/double field values)
@@ -165,7 +170,8 @@ message LogMatcher {
   // If true, inverts the match result
   bool negate = 20;
 
-  // If true, applies case-insensitive matching to all match types
+  // If true, applies case-insensitive matching to equals.string_value and the
+  // string pattern match types.
   bool case_insensitive = 21;
 }
 

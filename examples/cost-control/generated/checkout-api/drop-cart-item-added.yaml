@@ -4,7 +4,7 @@ name: Drop cart item added logs
 log:
   match:
     - resource_attribute: ["service.name"]
-      exact: checkout-api
+      equals: checkout-api
     - log_field: body
       regex: "item added to cart"
   keep: none

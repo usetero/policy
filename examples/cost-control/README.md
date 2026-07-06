@@ -78,7 +78,7 @@ name: Rate limit repeated error logs to 1 per 5 minutes per request
 log:
   match:
     - log_field: severity_text
-      exact: ERROR
+      equals: ERROR
   keep: "1/5m"
   sample_key:
     log_attribute: ["request_id"]
@@ -86,10 +86,11 @@ log:
 
 #### Typed and comparison matching
 
-The string match types (`exact`, `regex`, `contains`, ...) only see string
-values. To match numbers and booleans, use the typed `equals` matcher or the
-numeric comparators `gt` / `gte` / `lt` / `lte`. The value's type is inferred
-from the literal — `500` is an int, `0.1` is a double, `true` is a bool.
+Use `equals` for typed equality across strings, numbers, booleans, and bytes.
+The pattern matchers (`regex`, `contains`, ...) only see string values. To match
+numeric ranges, use the typed comparators `gt` / `gte` / `lt` / `lte`. The
+value's type is inferred from the literal — `500` is an int, `0.1` is a double,
+`true` is a bool.
 
 Keep only error logs by dropping the successful status-code range:
 
@@ -134,7 +135,7 @@ name: Sample order validated logs
 log:
   match:
     - resource_attribute: ["service.name"]
-      exact: checkout-api
+      equals: checkout-api
     - log_field: body
       regex: "order validated"
   keep: 50%

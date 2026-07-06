@@ -6,5 +6,5 @@ log:
     - resource_attribute: ["service.name"]
       regex: "^payment-"
     - log_field: severity_text
-      exact: DEBUG
+      equals: DEBUG
   keep: none

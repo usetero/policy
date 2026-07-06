@@ -4,7 +4,7 @@ name: Redact order submitted events
 log:
   match:
     - resource_attribute: ["service.name"]
-      exact: checkout-api
+      equals: checkout-api
     - log_field: body
       regex: "order submitted"
   transform:
