@@ -871,30 +871,37 @@ to enable multi-stage sampling:
 
 ## Policy Stages
 
-Policies execute in two fixed stages:
+Policies execute in two fixed stages, with extension dispatch between them:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   Telemetry ──▶ Match ──┬──▶ Keep ──▶ Transform ──▶ Out         │
-│                         │                                       │
-│                         │            ┌─────────────────┐        │
-│                         │            │ 1. Remove       │        │
-│                         │            │ 2. Redact       │        │
-│                         │            │ 3. Rename       │        │
-│                         │            │ 4. Add          │        │
-│                         │            └─────────────────┘        │
-│                         │                                       │
-│                         └── (policies matched in parallel)      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│   Telemetry ──▶ Match ──┬──▶ Keep ──▶ Extensions ──▶ Transform ──▶ Out   │
+│                         │                                                │
+│                         │                         ┌─────────────────┐    │
+│                         │                         │ 1. Remove       │    │
+│                         │                         │ 2. Redact       │    │
+│                         │                         │ 3. Rename       │    │
+│                         │                         │ 4. Add          │    │
+│                         │                         └─────────────────┘    │
+│                         │                                                │
+│                         └── (policies matched in parallel)               │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Stage 1: Keep
 
 All matching policies contribute their `keep` values. The runtime evaluates
 these values and applies the most restrictive result. If telemetry is dropped or
-sampled out, processing stops.
+sampled out, it does not continue to the transform stage.
+
+### Extension Dispatch
+
+After the runtime computes the final keep outcome, it classifies records for
+each extension by that extension's `mode` and dispatches copies to the registered
+extension handler. Extension dispatch observes pre-transform records and MUST NOT
+change the final keep outcome or any transform result.
 
 ### Stage 2: Transform
 
@@ -1201,14 +1208,15 @@ trace:
 Extensions attach optional, implementation-specific behavior to a policy without
 changing core semantics. Core matching and keep/transform decisions are
 unaffected: the engine matches telemetry using the policy's target
-(`log`/`metric`/`trace`), then hands matched records to the handler registered
-for each extension `type`. A common use is routing matched telemetry to an
-external destination (for example, dumping sampled-out records to S3).
+(`log`/`metric`/`trace`), computes the final keep outcome, then dispatches
+selected records to the handler registered for each extension `type` before
+transforming surviving telemetry. A common use is routing matched telemetry to
+an external destination (for example, dumping sampled-out records to S3).
 
 The extension mechanism is fully generic. Every extension payload is opaque to
-the policy engine — it routes matched records to the handler registered for the
-`type` and never interprets the payload. This lets any implementation define its
-own extension types without changing the core schema.
+the policy engine — it routes records selected by `mode` to the handler
+registered for the `type` and never interprets the payload. This lets any
+implementation define its own extension types without changing the core schema.
 
 ### Declaring an Extension
 
@@ -1262,9 +1270,9 @@ receives exactly the ~99.99% that were sampled out.
 
 Delivery is a side-channel: the engine copies the selected records to the
 extension and MUST NOT let the extension change the `keep`/`transform` outcome
-applied to the surviving pipeline. Records are delivered as matched (before this
-policy's `transform`); post-transform delivery, if needed, is defined by the
-extension `type`.
+applied to the surviving pipeline. Records are delivered after the final keep
+outcome is known and before any transform operations run; post-transform
+delivery, if needed, is defined by the extension `type`.
 
 ### Rules
 

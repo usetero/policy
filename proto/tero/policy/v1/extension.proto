@@ -10,10 +10,11 @@ option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 //
 // Extensions are a fully generic mechanism for attaching implementation-specific
 // behavior to a policy. The policy engine matches telemetry using the core
-// target (log/metric/trace), then hands matched records to the handler
-// registered for the extension `type`. All extension payloads are opaque bytes:
-// the engine never interprets them, so any implementation can define its own
-// extension types without changing the core schema.
+// target (log/metric/trace), computes the final keep outcome, then dispatches
+// selected records to the handler registered for the extension `type` before
+// transforms run. All extension payloads are opaque bytes: the engine never
+// interprets them, so any implementation can define its own extension types
+// without changing the core schema.
 //
 // tero's own extension types (e.g. the s3-dump destination) live in
 // tero_extensions.proto.

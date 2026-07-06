@@ -2,12 +2,13 @@
 
 Extensions attach implementation-specific behavior to a standard policy. Core
 matching and keep/transform semantics are unchanged — the engine matches
-telemetry with the policy's `log`/`metric`/`trace` target, then hands matched
-records to the handler registered for the extension `type`.
+telemetry with the policy's `log`/`metric`/`trace` target, computes the final
+keep outcome, then dispatches selected records to the handler registered for the
+extension `type` before transforms run.
 
 Extensions are generic: `type`, `version`, and an opaque `config`. The engine
-does not interpret `config` — it routes matched records to the handler for
-`type`, which parses `config` itself.
+does not interpret `config` — it routes records selected by `mode` to the
+handler for `type`, which parses `config` itself.
 
 Destinations are **not** defined inside the policy. An extension target (an S3
 bucket, a downstream OTLP endpoint, etc.) is pre-configured — either locally on
