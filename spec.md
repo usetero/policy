@@ -1219,11 +1219,13 @@ A policy declares one or more extensions:
 | `type`    | string | Reverse-FQDN extension identifier (e.g. `com.usetero/s3-dump`). |
 | `version` | string | Extension schema version (semver).                            |
 | `config`  | object | Opaque, type-defined configuration, parsed by the handler.    |
+| `mode`    | enum   | Which slice of traffic the engine delivers. Defaults to `matched`. See [Extension Input](#extension-input). |
 
 ```yaml
 extensions:
   - type: com.usetero/s3-dump
     version: 1.0.0
+    mode: dropped
     config: { ... } # defined entirely by the extension type
 ```
 
@@ -1236,23 +1238,33 @@ contents are defined by the extension, not this specification.
 
 ### Extension Input
 
-An extension receives every record its policy **matched** (passed all matchers),
-paired with the policy's `keep` verdict for that record — `kept`, `sampled_out`,
-or `dropped`. Records the policy did **not** match are never delivered to its
-extensions.
+An extension's `mode` selects which slice of the telemetry stream the engine
+delivers to it, relative to the extension's policy. Each record is classified on
+two independent axes — whether it **matched** the policy's matchers, and its
+final **keep** outcome — and a mode names a slice of that classification:
 
-Matching, not keep, is the filter. The keep verdict is a label: it tells the
-extension what happened to the record on the main pipeline but does not gate
-delivery. A `keep: none` (drop) policy therefore delivers all of its matched
-records to the extension, even though every one of them is dropped downstream.
-This is what makes "dump waste" work — `com.usetero/s3-dump` on a `keep: .01%`
-policy receives all matched records and archives the ~99.99% that were
-`sampled_out`.
+| Mode        | Records delivered                                     |
+| ----------- | ----------------------------------------------------- |
+| `kept`      | Matched the policy and survived the keep stage.       |
+| `dropped`   | Matched the policy but was removed by keep (dropped, sampled out, or rate limited). |
+| `unmatched` | Did not match the policy's matchers.                  |
+| `matched`   | Matched the policy, regardless of keep (`kept` + `dropped`). **Default.** |
+| `all`       | Every record of the signal type (`kept` + `dropped` + `unmatched`). |
 
-The extension is a side-channel off the matched set. It MUST NOT change the
-`keep`/`transform` outcome applied to the surviving pipeline. The record is
-delivered as matched (before this policy's `transform`); post-transform
-delivery, if needed, is defined by the extension `type`.
+`kept`, `dropped`, and `unmatched` are disjoint and together cover the whole
+stream; `matched` and `all` are convenience unions.
+
+The keep outcome is the record's **final pipeline outcome** — the most
+restrictive result across all matching policies — so `dropped` captures records
+removed even by a *different* policy. This is what makes "dump waste" work: a
+`com.usetero/s3-dump` extension with `mode: dropped` on a `keep: .01%` policy
+receives exactly the ~99.99% that were sampled out.
+
+Delivery is a side-channel: the engine copies the selected records to the
+extension and MUST NOT let the extension change the `keep`/`transform` outcome
+applied to the surviving pipeline. Records are delivered as matched (before this
+policy's `transform`); post-transform delivery, if needed, is defined by the
+extension `type`.
 
 ### Rules
 
@@ -1261,8 +1273,8 @@ delivery, if needed, is defined by the extension `type`.
 2. Each extension MUST specify a `type`, a `version`, and a `config`. The
    `config` is opaque to the policy engine and defined by the extension `type`.
 3. An extension MUST NOT redefine or alter core policy semantics (`match`,
-   `keep`, `transform`); it only observes the matched set (see
-   [Extension Input](#extension-input)) and acts on it out of band.
+   `keep`, `transform`); it only observes the slice of traffic named by its
+   `mode` (see [Extension Input](#extension-input)) and acts on it out of band.
 4. Implementations MUST explicitly document which extension `type`/`version`
    pairs they support.
 5. If a policy declares an extension whose `type` is unsupported (or whose
@@ -1287,12 +1299,14 @@ client either by local configuration or by broadcast via
 `SyncResponse.extension_configs`.
 
 The policy's extension `config` carries only a reference — `{ kind, name }` —
-to a target:
+to a target. Pairing it with `mode: dropped` archives the records this policy
+sampled out (the "waste"):
 
 ```yaml
 extensions:
   - type: com.usetero/s3-dump
     version: 1.0.0
+    mode: dropped
     config:
       target:
         kind: s3

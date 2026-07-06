@@ -21,8 +21,9 @@ rules.
 
 ## This Example
 
-- `dump-waste-to-s3.yaml` — sample checkout errors to `0.01%` and route the
-  matched records to the pre-configured `s3` target named `eu-bucket`.
+- `dump-waste-to-s3.yaml` — sample checkout errors to `0.01%` and, via
+  `mode: dropped`, route the sampled-out records (the "waste") to the
+  pre-configured `s3` target named `eu-bucket`.
 
 The matching `eu-bucket` target (with its region/bucket/prefix config) is
 configured out of band; the policy only names it. A client advertises which

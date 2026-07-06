@@ -18,6 +18,31 @@ option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
 // tero's own extension types (e.g. the s3-dump destination) live in
 // tero_extensions.proto.
 
+// ExtensionMode selects which slice of the telemetry stream the engine delivers
+// to an extension, relative to its policy. {KEPT, DROPPED, UNMATCHED} are
+// disjoint and partition the stream; MATCHED and ALL are convenience unions.
+enum ExtensionMode {
+  EXTENSION_MODE_UNSPECIFIED = 0; // treated as MATCHED
+
+  // Matched the policy and survived the keep stage.
+  EXTENSION_MODE_KEPT = 1;
+
+  // Matched the policy but was removed by the keep stage (dropped, sampled out,
+  // or rate limited). Its keep verdict is the record's final pipeline outcome,
+  // which another matching policy may have caused. This is the "dump waste" mode.
+  EXTENSION_MODE_DROPPED = 2;
+
+  // Did not match the policy's matchers.
+  EXTENSION_MODE_UNMATCHED = 3;
+
+  // Matched the policy, regardless of keep outcome (KEPT + DROPPED). Default.
+  EXTENSION_MODE_MATCHED = 4;
+
+  // Every record of the signal type, regardless of match or keep
+  // (KEPT + DROPPED + UNMATCHED).
+  EXTENSION_MODE_ALL = 5;
+}
+
 // Extension attaches implementation-specific behavior to a policy.
 //
 // Implementations MUST declare which extension types they support. An extension
@@ -34,6 +59,10 @@ message Extension {
   // Opaque, type-defined configuration payload, deserialized by the handler
   // registered for `type`. The policy engine does not interpret it.
   bytes config = 3;
+
+  // Which slice of traffic the engine delivers to this extension. Defaults to
+  // MATCHED.
+  ExtensionMode mode = 4;
 }
 
 // ExtensionCapability declares a client's support for one extension type. The
