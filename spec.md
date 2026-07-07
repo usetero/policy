@@ -56,13 +56,14 @@ A policy MUST contain the following fields:
 
 A policy MAY contain the following fields:
 
-| Field                   | Type       | Default | Description                                            |
-| ----------------------- | ---------- | ------- | ------------------------------------------------------ |
-| `description`           | string     | empty   | Explanation of the policy's purpose.                   |
-| `enabled`               | boolean    | `true`  | Whether the policy is active.                          |
-| `created_at_unix_nano`  | fixed64    | -       | Creation timestamp in Unix epoch nanoseconds.          |
-| `modified_at_unix_nano` | fixed64    | -       | Last modification timestamp in Unix epoch nanoseconds. |
-| `labels`                | KeyValue[] | empty   | Metadata labels for routing and organization.          |
+| Field                   | Type        | Default | Description                                                      |
+| ----------------------- | ----------- | ------- | ---------------------------------------------------------------- |
+| `description`           | string      | empty   | Explanation of the policy's purpose.                             |
+| `enabled`               | boolean     | `true`  | Whether the policy is active.                                    |
+| `created_at_unix_nano`  | fixed64     | -       | Creation timestamp in Unix epoch nanoseconds.                    |
+| `modified_at_unix_nano` | fixed64     | -       | Last modification timestamp in Unix epoch nanoseconds.           |
+| `labels`                | KeyValue[]  | empty   | Metadata labels for routing and organization.                    |
+| `extensions`            | Extension[] | empty   | Implementation-specific behavior. See [Extensions](#extensions). |
 
 ### Target
 
@@ -176,33 +177,33 @@ output.
 
 ##### LogField Enum Values
 
-| Value                           | Type   | Description                                          |
-| ------------------------------- | ------ | ---------------------------------------------------- |
-| `LOG_FIELD_BODY`                | string | The log message body.                                |
-| `LOG_FIELD_SEVERITY_TEXT`       | string | Severity as string (e.g., "DEBUG", "INFO", "ERROR"). |
+| Value                           | Type   | Description                                                                                   |
+| ------------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| `LOG_FIELD_BODY`                | string | The log message body.                                                                         |
+| `LOG_FIELD_SEVERITY_TEXT`       | string | Severity as string (e.g., "DEBUG", "INFO", "ERROR").                                          |
 | `LOG_FIELD_TRACE_ID`            | bytes  | Associated trace identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
-| `LOG_FIELD_SPAN_ID`             | bytes  | Associated span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
-| `LOG_FIELD_EVENT_NAME`          | string | Event name for event logs.                           |
-| `LOG_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.                                 |
-| `LOG_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.                                    |
+| `LOG_FIELD_SPAN_ID`             | bytes  | Associated span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields).  |
+| `LOG_FIELD_EVENT_NAME`          | string | Event name for event logs.                                                                    |
+| `LOG_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.                                                                          |
+| `LOG_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.                                                                             |
 
 #### Match Types
 
 A matcher MUST specify exactly one match type:
 
-| Type          | Value Type | Description                                                    |
-| ------------- | ---------- | -------------------------------------------------------------- |
-| `exact`       | string     | String field value MUST equal the specified string exactly.    |
-| `regex`       | string     | String field value MUST match the regular expression.          |
-| `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
-| `starts_with` | string     | String field value MUST begin with the specified literal string. |
-| `ends_with`   | string     | String field value MUST end with the specified literal string. |
-| `contains`    | string     | String field value MUST contain the specified literal substring. |
-| `equals`      | Value      | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
-| `gt`          | NumericValue | Numeric field value MUST be greater than the value.          |
-| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value. |
-| `lt`          | NumericValue | Numeric field value MUST be less than the value.             |
-| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value. |
+| Type          | Value Type   | Description                                                                                                             |
+| ------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `exact`       | string       | String field value MUST equal the specified string exactly.                                                             |
+| `regex`       | string       | String field value MUST match the regular expression.                                                                   |
+| `exists`      | boolean      | If `true`, field MUST exist. If `false`, field MUST NOT exist.                                                          |
+| `starts_with` | string       | String field value MUST begin with the specified literal string.                                                        |
+| `ends_with`   | string       | String field value MUST end with the specified literal string.                                                          |
+| `contains`    | string       | String field value MUST contain the specified literal substring.                                                        |
+| `equals`      | Value        | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `gt`          | NumericValue | Numeric field value MUST be greater than the value.                                                                     |
+| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value.                                                         |
+| `lt`          | NumericValue | Numeric field value MUST be less than the value.                                                                        |
+| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value.                                                            |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
@@ -241,10 +242,10 @@ NumericValue {
 Two distinct types are used deliberately: because the comparison matchers take a
 `NumericValue`, comparing against a non-numeric value (a bool or bytes) is
 unrepresentable in the schema rather than something that must be rejected during
-compilation. `Value` has no string variant for the same reason — string
-equality is expressed with `exact`. `int_value` preserves full 64-bit precision
-for large integer fields (for example, nanosecond timestamps) that a `double`
-cannot represent exactly.
+compilation. `Value` has no string variant for the same reason — string equality
+is expressed with `exact`. `int_value` preserves full 64-bit precision for large
+integer fields (for example, nanosecond timestamps) that a `double` cannot
+represent exactly.
 
 > **Future direction:** `exact` is expected to be deprecated. Once `Value` gains
 > a string variant, all equality — string and non-string — will be expressed
@@ -273,11 +274,11 @@ YAML/JSON. For shorthand, the literal's type determines the `Value` variant:
 ```yaml
 # Shorthand — type inferred from the literal
 - log_attribute: ["http.response.status_code"]
-  gte: 500                 # int
+  gte: 500 # int
 - log_attribute: ["sampling.ratio"]
-  lt: 0.5                  # double
+  lt: 0.5 # double
 - log_attribute: ["deprecated"]
-  equals: true             # bool
+  equals: true # bool
 
 # Canonical proto form
 - log_attribute: ["http.response.status_code"]
@@ -324,10 +325,10 @@ encoding cost is paid once per policy rather than once per telemetry record.
 # value is supplied explicitly via equals.
 - log_attribute: ["raw.token"]
   equals:
-    hex_value: "deadbeef"      # hex string (readable)
+    hex_value: "deadbeef" # hex string (readable)
 - log_attribute: ["raw.token"]
   equals:
-    bytes_value: "3q2+7w=="    # proto-native base64
+    bytes_value: "3q2+7w==" # proto-native base64
 ```
 
 `hex_value` and `bytes_value` are two encodings of the same bytes; an
@@ -346,14 +347,14 @@ are interchangeable.
 - The numeric comparison matchers (`gt`, `gte`, `lt`, `lte`) do not apply to
   bytes.
 
-**Type coercion and performance.** Implementations SHOULD always coerce between a
-field's declared type and the matcher literal — for example, decoding a hex
+**Type coercion and performance.** Implementations SHOULD always coerce between
+a field's declared type and the matcher literal — for example, decoding a hex
 string to bytes for a bytes-typed field — so a correctly authored policy matches
 regardless of how the literal was written. For performance, policies SHOULD also
 include a string match type where practical: implementations commonly optimize
-string and regular-expression matching with a dedicated multi-pattern engine, and
-a string matcher lets that fast path pre-filter records before a typed comparison
-runs.
+string and regular-expression matching with a dedicated multi-pattern engine,
+and a string matcher lets that fast path pre-filter records before a typed
+comparison runs.
 
 #### Case Insensitivity
 
@@ -647,19 +648,19 @@ See [AttributePath](#attributepath) for path syntax.
 A matcher MUST specify exactly one match type (except when using `metric_type`,
 which performs implicit equality):
 
-| Type          | Value Type | Description                                                    |
-| ------------- | ---------- | -------------------------------------------------------------- |
-| `exact`       | string     | String field value MUST equal the specified string exactly.    |
-| `regex`       | string     | String field value MUST match the regular expression.          |
-| `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
-| `starts_with` | string     | String field value MUST begin with the specified literal string. |
-| `ends_with`   | string     | String field value MUST end with the specified literal string. |
-| `contains`    | string     | String field value MUST contain the specified literal substring. |
-| `equals`      | Value      | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
-| `gt`          | NumericValue | Numeric field value MUST be greater than the value.          |
-| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value. |
-| `lt`          | NumericValue | Numeric field value MUST be less than the value.             |
-| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value. |
+| Type          | Value Type   | Description                                                                                                             |
+| ------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `exact`       | string       | String field value MUST equal the specified string exactly.                                                             |
+| `regex`       | string       | String field value MUST match the regular expression.                                                                   |
+| `exists`      | boolean      | If `true`, field MUST exist. If `false`, field MUST NOT exist.                                                          |
+| `starts_with` | string       | String field value MUST begin with the specified literal string.                                                        |
+| `ends_with`   | string       | String field value MUST end with the specified literal string.                                                          |
+| `contains`    | string       | String field value MUST contain the specified literal substring.                                                        |
+| `equals`      | Value        | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `gt`          | NumericValue | Numeric field value MUST be greater than the value.                                                                     |
+| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value.                                                         |
+| `lt`          | NumericValue | Numeric field value MUST be less than the value.                                                                        |
+| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value.                                                            |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
@@ -724,33 +725,33 @@ TraceMatcher {
 
 A matcher MUST specify exactly one field selector:
 
-| Selector             | Type                | Description                                      |
-| -------------------- | ------------------- | ------------------------------------------------ |
-| `trace_field`        | TraceField enum     | Well-known span field.                           |
-| `span_attribute`     | AttributePath       | Span attribute by path.                          |
-| `resource_attribute` | AttributePath       | Resource attribute by path.                      |
-| `scope_attribute`    | AttributePath       | Instrumentation scope attribute by path.         |
-| `span_kind`          | SpanKind enum       | Span kind (implicit equality match).             |
-| `span_status`        | SpanStatusCode enum | Span status code (implicit equality match).      |
-| `event_name`         | string              | Event name (matches if span contains the event). |
-| `event_attribute`    | AttributePath       | Event attribute path (matches if present).       |
+| Selector             | Type                | Description                                                                                                                                      |
+| -------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `trace_field`        | TraceField enum     | Well-known span field.                                                                                                                           |
+| `span_attribute`     | AttributePath       | Span attribute by path.                                                                                                                          |
+| `resource_attribute` | AttributePath       | Resource attribute by path.                                                                                                                      |
+| `scope_attribute`    | AttributePath       | Instrumentation scope attribute by path.                                                                                                         |
+| `span_kind`          | SpanKind enum       | Span kind (implicit equality match).                                                                                                             |
+| `span_status`        | SpanStatusCode enum | Span status code (implicit equality match).                                                                                                      |
+| `event_name`         | string              | Event name (matches if span contains the event).                                                                                                 |
+| `event_attribute`    | AttributePath       | Event attribute path (matches if present).                                                                                                       |
 | `link_trace_id`      | string (hex)        | Link trace ID, authored as hex and matched as bytes (matches if span has link). See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
 
 See [AttributePath](#attributepath) for path syntax.
 
 ##### TraceField Enum Values
 
-| Value                             | Type   | Description                    |
-| --------------------------------- | ------ | ------------------------------ |
-| `TRACE_FIELD_NAME`                | string | The span name.                 |
-| `TRACE_FIELD_TRACE_ID`            | bytes  | The trace identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
-| `TRACE_FIELD_SPAN_ID`             | bytes  | The span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
+| Value                             | Type   | Description                                                                                  |
+| --------------------------------- | ------ | -------------------------------------------------------------------------------------------- |
+| `TRACE_FIELD_NAME`                | string | The span name.                                                                               |
+| `TRACE_FIELD_TRACE_ID`            | bytes  | The trace identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields).       |
+| `TRACE_FIELD_SPAN_ID`             | bytes  | The span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields).        |
 | `TRACE_FIELD_PARENT_SPAN_ID`      | bytes  | The parent span identifier. See [Bytes and Identifier Fields](#bytes-and-identifier-fields). |
-| `TRACE_FIELD_TRACE_STATE`         | string | The W3C tracestate.            |
-| `TRACE_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.           |
-| `TRACE_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.              |
-| `TRACE_FIELD_SCOPE_NAME`          | string | Instrumentation scope name.    |
-| `TRACE_FIELD_SCOPE_VERSION`       | string | Instrumentation scope version. |
+| `TRACE_FIELD_TRACE_STATE`         | string | The W3C tracestate.                                                                          |
+| `TRACE_FIELD_RESOURCE_SCHEMA_URL` | string | Resource schema URL.                                                                         |
+| `TRACE_FIELD_SCOPE_SCHEMA_URL`    | string | Scope schema URL.                                                                            |
+| `TRACE_FIELD_SCOPE_NAME`          | string | Instrumentation scope name.                                                                  |
+| `TRACE_FIELD_SCOPE_VERSION`       | string | Instrumentation scope version.                                                               |
 
 ##### SpanKind Enum Values
 
@@ -775,19 +776,19 @@ See [AttributePath](#attributepath) for path syntax.
 A matcher MUST specify exactly one match type (except when using `span_kind` or
 `span_status`, which perform implicit equality):
 
-| Type          | Value Type | Description                                                    |
-| ------------- | ---------- | -------------------------------------------------------------- |
-| `exact`       | string     | String field value MUST equal the specified string exactly.    |
-| `regex`       | string     | String field value MUST match the regular expression.          |
-| `exists`      | boolean    | If `true`, field MUST exist. If `false`, field MUST NOT exist. |
-| `starts_with` | string     | String field value MUST begin with the specified literal string. |
-| `ends_with`   | string     | String field value MUST end with the specified literal string. |
-| `contains`    | string     | String field value MUST contain the specified literal substring. |
-| `equals`      | Value      | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
-| `gt`          | NumericValue | Numeric field value MUST be greater than the value.          |
-| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value. |
-| `lt`          | NumericValue | Numeric field value MUST be less than the value.             |
-| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value. |
+| Type          | Value Type   | Description                                                                                                             |
+| ------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `exact`       | string       | String field value MUST equal the specified string exactly.                                                             |
+| `regex`       | string       | String field value MUST match the regular expression.                                                                   |
+| `exists`      | boolean      | If `true`, field MUST exist. If `false`, field MUST NOT exist.                                                          |
+| `starts_with` | string       | String field value MUST begin with the specified literal string.                                                        |
+| `ends_with`   | string       | String field value MUST end with the specified literal string.                                                          |
+| `contains`    | string       | String field value MUST contain the specified literal substring.                                                        |
+| `equals`      | Value        | Non-string field value MUST equal the typed value. See [Typed and Comparison Matching](#typed-and-comparison-matching). |
+| `gt`          | NumericValue | Numeric field value MUST be greater than the value.                                                                     |
+| `gte`         | NumericValue | Numeric field value MUST be greater than or equal to the value.                                                         |
+| `lt`          | NumericValue | Numeric field value MUST be less than the value.                                                                        |
+| `lte`         | NumericValue | Numeric field value MUST be less than or equal to the value.                                                            |
 
 Regular expressions MUST use
 [RE2 syntax](https://github.com/google/re2/wiki/Syntax) for cross-implementation
@@ -891,30 +892,37 @@ to enable multi-stage sampling:
 
 ## Policy Stages
 
-Policies execute in two fixed stages:
+Policies execute in two fixed stages, with extension dispatch between them:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   Telemetry ──▶ Match ──┬──▶ Keep ──▶ Transform ──▶ Out         │
-│                         │                                       │
-│                         │            ┌─────────────────┐        │
-│                         │            │ 1. Remove       │        │
-│                         │            │ 2. Redact       │        │
-│                         │            │ 3. Rename       │        │
-│                         │            │ 4. Add          │        │
-│                         │            └─────────────────┘        │
-│                         │                                       │
-│                         └── (policies matched in parallel)      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│   Telemetry ──▶ Match ──┬──▶ Keep ──▶ Extensions ──▶ Transform ──▶ Out   │
+│                         │                                                │
+│                         │                         ┌─────────────────┐    │
+│                         │                         │ 1. Remove       │    │
+│                         │                         │ 2. Redact       │    │
+│                         │                         │ 3. Rename       │    │
+│                         │                         │ 4. Add          │    │
+│                         │                         └─────────────────┘    │
+│                         │                                                │
+│                         └── (policies matched in parallel)               │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Stage 1: Keep
 
 All matching policies contribute their `keep` values. The runtime evaluates
 these values and applies the most restrictive result. If telemetry is dropped or
-sampled out, processing stops.
+sampled out, it does not continue to the transform stage.
+
+### Extension Dispatch
+
+After the runtime computes the final keep outcome, it classifies records for
+each extension by that extension's `mode` and dispatches copies to the
+registered extension handler. Extension dispatch observes pre-transform records
+and MUST NOT change the final keep outcome or any transform result.
 
 ### Stage 2: Transform
 
@@ -1216,6 +1224,128 @@ trace:
     percentage: 100.0
 ```
 
+## Extensions
+
+Extensions attach optional, implementation-specific behavior to a policy without
+changing core semantics. Core matching and keep/transform decisions are
+unaffected: the engine matches telemetry using the policy's target
+(`log`/`metric`/`trace`), computes the final keep outcome, then dispatches
+selected records to the handler registered for each extension `type` before
+transforming surviving telemetry. A common use is routing matched telemetry to
+an external destination (for example, dumping sampled-out records to S3).
+
+The extension mechanism is fully generic. Every extension payload is opaque to
+the policy engine — it routes records selected by `mode` to the handler
+registered for the `type` and never interprets the payload. This lets any
+implementation define its own extension types without changing the core schema.
+
+### Declaring an Extension
+
+A policy declares one or more extensions:
+
+| Field     | Type   | Description                                                                                                 |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| `type`    | string | Reverse-FQDN extension identifier (e.g. `com.usetero/s3-dump`).                                             |
+| `version` | string | Extension schema version (semver).                                                                          |
+| `config`  | object | Opaque, type-defined configuration, parsed by the handler.                                                  |
+| `mode`    | enum   | Which slice of traffic the engine delivers. Defaults to `matched`. See [Extension Input](#extension-input). |
+
+```yaml
+extensions:
+  - type: com.usetero/s3-dump
+    version: 1.0.0
+    mode: dropped
+    config: { ... } # defined entirely by the extension type
+```
+
+A client advertises which extension types it supports — and per type, opaque
+type-defined capability descriptors — via `ClientMetadata.supported_extensions`
+(`type`, `min_version`, and a list of opaque `config` entries). A provider MAY
+also broadcast opaque type-defined configuration to clients via
+`SyncResponse.extension_configs`. Both are keyed by extension `type`; their
+contents are defined by the extension, not this specification.
+
+### Extension Input
+
+An extension's `mode` selects which slice of the telemetry stream the engine
+delivers to it, relative to the extension's policy. Each record is classified on
+two independent axes — whether it **matched** the policy's matchers, and its
+final **keep** outcome — and a mode names a slice of that classification:
+
+| Mode        | Records delivered                                                                   |
+| ----------- | ----------------------------------------------------------------------------------- |
+| `kept`      | Matched the policy and survived the keep stage.                                     |
+| `dropped`   | Matched the policy but was removed by keep (dropped, sampled out, or rate limited). |
+| `unmatched` | Did not match the policy's matchers.                                                |
+| `matched`   | Matched the policy, regardless of keep (`kept` + `dropped`). **Default.**           |
+| `all`       | Every record of the signal type (`kept` + `dropped` + `unmatched`).                 |
+
+`kept`, `dropped`, and `unmatched` are disjoint and together cover the whole
+stream; `matched` and `all` are convenience unions.
+
+The keep outcome is the record's **final pipeline outcome** — the most
+restrictive result across all matching policies — so `dropped` captures records
+removed even by a _different_ policy. This is what makes "dump waste" work: a
+`com.usetero/s3-dump` extension with `mode: dropped` on a `keep: .01%` policy
+receives exactly the ~99.99% that were sampled out.
+
+Delivery is a side-channel: the engine copies the selected records to the
+extension and MUST NOT let the extension change the `keep`/`transform` outcome
+applied to the surviving pipeline. Records are delivered after the final keep
+outcome is known and before any transform operations run; post-transform
+delivery, if needed, is defined by the extension `type`.
+
+### Rules
+
+1. `extensions` is OPTIONAL. A policy MAY declare multiple extensions (for
+   example, to dump to both disk and S3).
+2. Each extension MUST specify a `type`, a `version`, and a `config`. The
+   `config` is opaque to the policy engine and defined by the extension `type`.
+3. An extension MUST NOT redefine or alter core policy semantics (`match`,
+   `keep`, `transform`); it only observes the slice of traffic named by its
+   `mode` (see [Extension Input](#extension-input)) and acts on it out of band.
+4. Implementations MUST explicitly document which extension `type`/`version`
+   pairs they support.
+5. If a policy declares an extension whose `type` is unsupported (or whose
+   `config` cannot be satisfied) and that extension is required for the policy's
+   intended behavior, the implementation SHOULD reject the policy load with a
+   clear error reported via `PolicySyncStatus.errors`. Otherwise the extension
+   is skipped (fail-open) and core matching/keep/transform still applies.
+6. Extension behavior SHOULD execute off the hot path using non-blocking
+   operations so core telemetry processing is not delayed.
+
+### tero Extension: `com.usetero/s3-dump`
+
+This is a concrete extension type defined by tero, illustrating the generic
+mechanism above. It routes matched telemetry to a pre-configured **destination**
+(an "extension target") so credentials and connection details stay out of
+policies and one destination can be reused across many policies.
+
+A target is a named destination — `kind` (e.g. `s3`), `name` (unique within a
+kind, e.g. `eu-bucket`), and opaque kind-defined `config` (region, bucket,
+prefix). It is identified by the `(kind, name)` pair and becomes available to a
+client either by local configuration or by broadcast via
+`SyncResponse.extension_configs`.
+
+The policy's extension `config` carries only a reference — `{ kind, name }` — to
+a target. Pairing it with `mode: dropped` archives the records this policy
+sampled out (the "waste"):
+
+```yaml
+extensions:
+  - type: com.usetero/s3-dump
+    version: 1.0.0
+    mode: dropped
+    config:
+      target:
+        kind: s3
+        name: eu-bucket
+```
+
+A client advertises the targets it can reach as the capability descriptors of
+`ClientMetadata.supported_extensions` (each descriptor is a `{ kind, name }`
+reference), so a provider only sends policies pointing at reachable targets.
+
 ## Conformance
 
 An implementation conforms to this specification if it:
@@ -1230,6 +1360,8 @@ An implementation conforms to this specification if it:
 8. Validates policies per the [compilation error](#compilation-errors) rules,
    keeps invalid policies inert without aborting valid policies in the same
    batch, and reports compilation errors via `PolicySyncStatus.errors`.
+9. Handles [extensions](#extensions) per the stated rules for any extension
+   `type` it supports, and documents which `type`/`version` pairs it supports.
 
 Implementations MAY support a subset of features (e.g., omit rate limiting) but
 MUST clearly document unsupported features.

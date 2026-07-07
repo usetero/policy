@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package tero.policy.v1;
+
+option go_package = "github.com/usetero/policy/gen/go/tero/policy/v1";
+
+// =============================================================================
+// tero Extension Types
+// =============================================================================
+//
+// Concrete extension types defined by tero, carried inside the opaque `config`
+// bytes of the generic extension messages in extension.proto. These are not
+// part of the core policy mechanism — other implementations define their own.
+
+// ExtensionTarget is a pre-configured, named destination an extension can route
+// telemetry to (for example, an S3 bucket or a downstream OTLP endpoint).
+//
+// Targets are configured out of band on the implementation, or broadcast to
+// clients via SyncResponse.extension_configs (serialized into the s3-dump
+// extension's config). Policies reference a target by (kind, name) via
+// ExtensionTargetRef and never carry its configuration inline.
+message ExtensionTarget {
+  // Destination kind, e.g. "s3" or "otlp".
+  string kind = 1;
+
+  // Name, unique within a kind, e.g. "eu-bucket". Used as the reference key.
+  string name = 2;
+
+  // Opaque, kind-defined configuration (e.g. region, bucket, prefix).
+  bytes config = 3;
+}
+
+// ExtensionTargetRef references a pre-configured ExtensionTarget by identity.
+// Carried inside an Extension's config (to name where it routes) and inside an
+// ExtensionCapability's config (to advertise reachable destinations). The
+// referenced target MUST be known to the implementation — locally configured or
+// received via SyncResponse.extension_configs.
+message ExtensionTargetRef {
+  string kind = 1;
+  string name = 2;
+}
