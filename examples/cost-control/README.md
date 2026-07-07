@@ -126,7 +126,7 @@ log:
 
 - `drop-cart-item-added.yaml` - High volume, low value cart events
 - `drop-request-received.yaml` - Redundant request logging
-- `sample-order-validated.yaml` - Keep 50%, strip verbose attributes
+- `sample-order-validated.yaml` - Randomly keep about 50%, strip verbose attributes
 
 ```yaml
 id: checkout-api-sample-order-validated
@@ -144,6 +144,9 @@ log:
       - log_attribute: ["cart_contents"]
       - log_attribute: ["validation_trace"]
 ```
+
+Because this policy has no `sample_key`, each matching log is sampled
+independently with a random decision.
 
 **user-service/**
 
