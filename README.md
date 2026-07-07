@@ -28,9 +28,9 @@ name: Drop checkout debug logs
 log:
   match:
     - resource_attribute: ["service.name"]
-      exact: checkout-api
+      equals: checkout-api
     - log_field: LOG_FIELD_SEVERITY_TEXT
-      exact: DEBUG
+      equals: DEBUG
   keep: none
 ```
 

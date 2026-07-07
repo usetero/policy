@@ -7,8 +7,8 @@ description: >
 trace:
   match:
     - resource_attribute: ["service.name"]
-      exact: checkout-api
+      equals: checkout-api
     - trace_field: name
-      exact: SubmitOrder
+      equals: SubmitOrder
   keep:
     percentage: 100.0

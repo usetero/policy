@@ -7,7 +7,7 @@ description: >
 trace:
   match:
     - resource_attribute: ["service.name"]
-      exact: checkout-api
+      equals: checkout-api
     - trace_field: name
       regex: "^(AddToCart|RemoveFromCart|UpdateCart)"
   keep:

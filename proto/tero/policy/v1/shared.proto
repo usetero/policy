@@ -51,9 +51,7 @@ message AttributePath {
   repeated string path = 1;
 }
 
-// Value carries a typed, non-string scalar for the `equals` matcher. String
-// equality is expressed with the `exact` match type, so this message
-// intentionally has no string variant.
+// Value carries a typed scalar for the `equals` matcher.
 //
 // `equals` matches when the field value has the same type and value as the set
 // variant. Integer and floating-point values are compared in a single numeric
@@ -68,19 +66,16 @@ message AttributePath {
 //   equals: true   ->  bool_value
 //   equals: 200    ->  int_value
 //   equals: 0.5    ->  double_value
+//   equals: "foo"  ->  string_value
 //
 // Bytes are authored either as proto-native base64 (`bytes_value`) or, more
 // readably, as a lowercase-hex string (`hex_value`). The two are equivalent —
 // hex_value is decoded to bytes at policy-compile time and yields the same bytes
 // as the corresponding bytes_value — but hex_value keeps identifiers
 // (trace/span ids) readable in the canonical proto/JSON form instead of base64.
-// A bare string literal (e.g. `equals: "foo"`) MUST be rejected — use `exact`
-// for strings.
 //
-// Future direction: the `exact` match type is expected to be deprecated. Once a
-// string variant is added to this message, all equality (string and non-string)
-// will be expressed through `equals`, with `exact` kept only for backward
-// compatibility.
+// String equality SHOULD be authored with string_value. The older matcher-level
+// `exact` field is deprecated and will move to reserved in a future version.
 message Value {
   // Exactly one must be set.
   oneof value {
@@ -93,6 +88,7 @@ message Value {
     // input, canonically lowercase). Decoded to bytes at policy-compile time;
     // an invalid hex string MUST be rejected.
     string hex_value = 5;
+    string string_value = 6;
   }
 }
 

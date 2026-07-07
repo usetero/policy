@@ -4,7 +4,7 @@ name: Rate limit repeated error logs to 1 per 5 minutes per request
 log:
   match:
     - log_field: severity_text
-      exact: ERROR
+      equals: ERROR
   keep: "1/5m"
   sample_key:
     log_attribute: ["request_id"]

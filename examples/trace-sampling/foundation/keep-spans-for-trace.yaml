@@ -4,11 +4,12 @@ description: >
   Retains every span belonging to one trace id while debugging an incident.
   trace_id is a bytes field, so the hex literal is decoded to raw bytes once at
   policy-load time and compared as bytes — no per-span hex encoding required.
-  The exact matcher is case-insensitive on the hex input.
+  hex_value is case-insensitive on input.
 
 trace:
   match:
     - trace_field: TRACE_FIELD_TRACE_ID
-      exact: "4bf92f3577b34da6a3ce929d0e0e4736"
+      equals:
+        hex_value: "4bf92f3577b34da6a3ce929d0e0e4736"
   keep:
     percentage: 100.0
