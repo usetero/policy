@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.0](https://github.com/usetero/policy/compare/v1.5.0...v1.6.0) (2026-07-07)
+
+
+### Features
+
+* extensions ([#51](https://github.com/usetero/policy/issues/51)) ([ae3fb62](https://github.com/usetero/policy/commit/ae3fb628be5c1319fdd83eabb7b00cba8c0d3591))
+* include details for log sampling when key is not set ([#53](https://github.com/usetero/policy/issues/53)) ([28f049f](https://github.com/usetero/policy/commit/28f049f10c3354dc022d02e7ffcdea46fb520821))
+* move exact to a string typed equals ([#52](https://github.com/usetero/policy/issues/52)) ([d47f442](https://github.com/usetero/policy/commit/d47f442aaace476444c3d7459e297caee7b4165d))
+
 ## [1.5.0](https://github.com/usetero/policy/compare/v1.4.0...v1.5.0) (2026-06-02)
 
 
