@@ -38,7 +38,8 @@ Additionally, policies adhere to these constraints:
 - **Self-contained**: A policy MUST NOT reference or depend on other policies.
 - **Fail-open**: Policy evaluation failures MUST NOT cause telemetry loss.
 - **Idempotent**: Applying the same policy multiple times produces the same
-  result.
+  result, except for log percentage sampling without `sample_key`, which uses
+  per-record random sampling by design.
 
 ## Policy Structure
 
@@ -375,7 +376,7 @@ unifies dropping, sampling, and rate limiting into a single concept.
 | -------- | ------------------------------------------------------------------------------- |
 | `"all"`  | Keep all matching telemetry. This is the default.                               |
 | `"none"` | Drop all matching telemetry.                                                    |
-| `"N%"`   | Keep N percent of matching telemetry (0-100).                                   |
+| `"N%"`   | Keep approximately N percent of matching telemetry (0-100).                     |
 | `"N/s"`  | Keep at most N records per second (shorthand for `"N/1s"`).                     |
 | `"N/m"`  | Keep at most N records per minute (shorthand for `"N/1m"`).                     |
 | `"N/Ds"` | Keep at most N records per D-second window (`N` and `D` are positive integers). |
@@ -402,6 +403,23 @@ The `sample_key` field enables consistent sampling by specifying a field whose
 value determines the sampling decision. When set, all logs with the same value
 for the specified field receive the same keep/drop decision.
 
+##### Percentage Sampling Without sample_key
+
+For log `keep: "N%"`, implementations MUST make a probabilistic keep/drop
+decision for each matching log record.
+
+If `sample_key` is not set, implementations MUST sample each log independently
+using a high-quality random value generated at evaluation time. This default is
+cheap and gives the expected approximate distribution, but it is intentionally
+not idempotent: evaluating the same policy over the same log sequence MAY produce
+a different sampled output.
+
+Implementations MUST NOT derive the default sampling input from the log
+timestamp. Many records can share a timestamp, and a timestamp-derived decision
+can keep or drop correlated bursts in a way that violates the expected sampling
+percentage. Implementations SHOULD NOT hash the entire log record unless they
+explicitly choose that cost; use `sample_key` for deterministic sampling.
+
 ```
 LogSampleKey {
   // Exactly one must be set:
@@ -412,8 +430,9 @@ LogSampleKey {
 }
 ```
 
-This prevents "swiss cheese" sampling where related log lines (e.g., lifecycle
-events for a single request) get sampled independently.
+This preserves idempotency for keyed sampling and prevents "swiss cheese"
+sampling where related log lines (e.g., lifecycle events for a single request)
+get sampled independently.
 
 **Example:** A Rails request that produces 6 log lines:
 
@@ -425,8 +444,9 @@ Processing by ProductsController#show
 Completed 200 OK in 45ms
 ```
 
-Without `sample_key`, at 10% sampling you get random combinations—some requests
-with 2 logs, some with 4, some missing entirely. With
+Without `sample_key`, at 10% sampling the runtime uses independent random
+decisions, so you get random combinations--some requests with 2 logs, some with
+4, some missing entirely. With
 `sample_key: {log_attribute: "request_id"}` and `keep: "10%"`, you either get
 all logs for a request or none.
 
@@ -436,7 +456,8 @@ all logs for a request or none.
 2. Hash the value deterministically (e.g., `hash(value) % 100 < percentage`)
 3. Apply the same keep/drop decision to all logs with that key value
 
-If `sample_key` is not set, sample each log independently (default behavior).
+If `sample_key` is not set, sample each log independently using the random
+default described above.
 
 ### Log Transform
 
