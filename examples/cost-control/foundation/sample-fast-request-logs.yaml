@@ -4,6 +4,8 @@ description: >
   Fast requests are rarely interesting, so keep only a small sample of them.
   Demonstrates the lt comparator against a floating-point attribute — the 0.1
   literal is matched as a double, not coerced to a string.
+  Because no sample_key is set, each matching log is sampled independently with
+  a random decision.
 
 log:
   match:
