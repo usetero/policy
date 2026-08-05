@@ -1098,10 +1098,10 @@ implementation that omits it is still conformant, and providers MUST NOT require
 it.
 
 When reported, volume is counted for every record entering policy evaluation,
-including records
-that match no policy and records with no policies loaded for their signal.
-Counting happens **before** the keep and transform stages, so dropped, sampled
-out, and redacted records are all included at their pre-policy size.
+including records that match no policy and records with no policies loaded for
+their signal. Counting happens **before** the keep and transform stages, so
+dropped, sampled out, and redacted records are all included at their pre-policy
+size.
 
 `VolumeStats` reports records and bytes per signal:
 
@@ -1128,9 +1128,16 @@ Because `0` is both "not measured" and "measured as zero", a consumer MUST NOT
 infer that a field left at `0` means no volume was seen. Any field of
 `VolumeStats` MAY be left at `0` by an implementation that does not track it.
 
-Counters cover the interval since the last successful sync and MUST be reset
-once a sync succeeds. If a sync fails, the counters MUST be retained and
-included in the next attempt.
+Counters MUST be reset when they are read into a sync request, whether or not
+that sync then succeeds, and counters drained into a failed sync MUST NOT be
+replayed. This is the rule `match_hits` and `match_misses` already follow, and it
+MUST be the same rule: retaining one side of `(hits + misses) / <signal count>`
+without the other skews the ratio. Replay would also double count, since a client
+cannot tell an unprocessed sync from one whose response was lost, and
+`SyncRequest` carries no interval identifier for the server to dedupe on.
+
+Volume is therefore reported at most once. Consumers MUST treat it as a lower
+bound on telemetry observed, not an exact total.
 
 Implementations that do not track volume at all SHOULD omit `SyncRequest.volume`
 rather than send a zero-valued message.
@@ -1413,7 +1420,8 @@ An implementation conforms to this specification if it:
 9. Handles [extensions](#extensions) per the stated rules for any extension
    `type` it supports, and documents which `type`/`version` pairs it supports.
 10. If it reports `SyncRequest.volume`, counts it per the
-    [volume tracking](#volume-tracking) semantics. Reporting volume, and
+    [volume tracking](#volume-tracking) semantics, and resets the counters on
+    read without replaying those of a failed sync. Reporting volume, and
     reporting byte counts within it, are both optional.
 
 Implementations MAY support a subset of features (e.g., omit rate limiting) but
