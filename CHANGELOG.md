@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/usetero/policy/compare/v1.7.0...v1.7.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* improve counter semantics ([#61](https://github.com/usetero/policy/issues/61)) ([adbfa71](https://github.com/usetero/policy/commit/adbfa7142a088ff157c53d9c9533f177a87db652))
+
 ## [1.7.0](https://github.com/usetero/policy/compare/v1.6.0...v1.7.0) (2026-08-05)
 
 
