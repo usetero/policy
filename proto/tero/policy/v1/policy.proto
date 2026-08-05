@@ -126,6 +126,34 @@ message PolicySyncStatus {
   TransformStageStatus add = 13;
 }
 
+// VolumeStats reports the total telemetry a client observed since the last
+// sync, regardless of whether any policy matched it. Counts are of records
+// entering policy evaluation, before any keep or transform stage runs, and are
+// reset on each successful sync.
+//
+// Reporting volume is optional, and every field is individually optional: an
+// implementation may report record counts without byte counts, or a subset of
+// signals. Any field left at 0 means "not tracked" as much as it means "none
+// seen", so consumers must not read 0 as an observation.
+//
+// Byte counts, when reported, are the uncompressed OTLP protobuf serialized
+// size of the records as received, and are an estimate; implementations that
+// cannot measure this cheaply may approximate it. A size in any other encoding
+// must not be reported here — leave the field at 0 instead.
+message VolumeStats {
+  // Log records seen, and their total size in bytes.
+  int64 log_records = 1;
+  int64 log_bytes = 2;
+
+  // Metric data points seen, and their total size in bytes.
+  int64 metric_data_points = 3;
+  int64 metric_bytes = 4;
+
+  // Spans seen, and their total size in bytes.
+  int64 spans = 5;
+  int64 span_bytes = 6;
+}
+
 // SyncRequest is sent by clients to request policy updates.
 message SyncRequest {
   // Client identification and capabilities
@@ -142,6 +170,10 @@ message SyncRequest {
 
   // Status of individual policies within this set.
   repeated PolicySyncStatus policy_statuses = 5;
+
+  // Optional. Total telemetry observed since the last sync, regardless of
+  // policy match. Clients that do not track volume omit this.
+  VolumeStats volume = 6;
 }
 
 enum SyncType {
