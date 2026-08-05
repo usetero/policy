@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/usetero/policy/compare/v1.6.0...v1.7.0) (2026-08-05)
+
+
+### Features
+
+* record volume stats for total seen ([#59](https://github.com/usetero/policy/issues/59)) ([55d0805](https://github.com/usetero/policy/commit/55d0805f982b598329a2568234bc08543bbd0db3))
+
 ## [1.6.0](https://github.com/usetero/policy/compare/v1.5.0...v1.6.0) (2026-07-07)
 
 
