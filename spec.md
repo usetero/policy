@@ -1088,6 +1088,53 @@ restrictive and causes the drop. `keep-info` records a miss because its intent
 was applied. The third record matches neither policy, so neither counter is
 incremented for either policy.
 
+### Volume Tracking
+
+Match tracking is per-policy and only counts records a policy matched. To report
+the denominator — everything the implementation processed — implementations MAY
+report total observed volume via `SyncRequest.volume`, a `VolumeStats` message
+counted **regardless of match status**. Volume tracking is entirely optional: an
+implementation that omits it is still conformant, and providers MUST NOT require
+it.
+
+When reported, volume is counted for every record entering policy evaluation,
+including records
+that match no policy and records with no policies loaded for their signal.
+Counting happens **before** the keep and transform stages, so dropped, sampled
+out, and redacted records are all included at their pre-policy size.
+
+`VolumeStats` reports records and bytes per signal:
+
+| Field                | Unit    | Counts                                        |
+| -------------------- | ------- | --------------------------------------------- |
+| `log_records`        | records | Log records seen.                             |
+| `log_bytes`          | bytes   | Total size of those log records.              |
+| `metric_data_points` | records | Metric data points seen (not metric streams). |
+| `metric_bytes`       | bytes   | Total size of those data points.              |
+| `spans`              | records | Spans seen.                                   |
+| `span_bytes`         | bytes   | Total size of those spans.                    |
+
+Record counts are in the same unit as `PolicySyncStatus.match_hits` and
+`match_misses`, so a policy's match rate is `(hits + misses) / <signal count>`.
+
+Byte counts are independently optional: an implementation MAY report record
+counts alone and leave the `*_bytes` fields at `0`. When reported, they are the
+uncompressed OTLP protobuf serialized size of the record as received, and are an
+estimate — an implementation that cannot measure this cheaply MAY approximate
+it. A byte count MUST NOT be reported in a different encoding (e.g. JSON, or a
+post-compression size); leave the field at `0` instead.
+
+Because `0` is both "not measured" and "measured as zero", a consumer MUST NOT
+infer that a field left at `0` means no volume was seen. Any field of
+`VolumeStats` MAY be left at `0` by an implementation that does not track it.
+
+Counters cover the interval since the last successful sync and MUST be reset
+once a sync succeeds. If a sync fails, the counters MUST be retained and
+included in the next attempt.
+
+Implementations that do not track volume at all SHOULD omit `SyncRequest.volume`
+rather than send a zero-valued message.
+
 ## YAML Representation
 
 While the canonical format is Protocol Buffers, policies MAY be represented in
@@ -1365,6 +1412,9 @@ An implementation conforms to this specification if it:
    batch, and reports compilation errors via `PolicySyncStatus.errors`.
 9. Handles [extensions](#extensions) per the stated rules for any extension
    `type` it supports, and documents which `type`/`version` pairs it supports.
+10. If it reports `SyncRequest.volume`, counts it per the
+    [volume tracking](#volume-tracking) semantics. Reporting volume, and
+    reporting byte counts within it, are both optional.
 
 Implementations MAY support a subset of features (e.g., omit rate limiting) but
 MUST clearly document unsupported features.
