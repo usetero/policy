@@ -128,8 +128,14 @@ message PolicySyncStatus {
 
 // VolumeStats reports the total telemetry a client observed since the last
 // sync, regardless of whether any policy matched it. Counts are of records
-// entering policy evaluation, before any keep or transform stage runs, and are
-// reset on each successful sync.
+// entering policy evaluation, before any keep or transform stage runs.
+//
+// Counters are reset when they are read into a sync request, whether or not
+// that sync then succeeds — the same rule PolicySyncStatus.match_hits and
+// match_misses follow. A failed sync loses its interval from the numerator and
+// the denominator alike, so match rates stay meaningful; counters from a failed
+// sync must never be replayed, since the server cannot tell a replay from new
+// telemetry. Reported volume is a lower bound, not an exact total.
 //
 // Reporting volume is optional, and every field is individually optional: an
 // implementation may report record counts without byte counts, or a subset of
